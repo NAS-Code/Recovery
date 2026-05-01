@@ -1,0 +1,153 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { waitUntil } from "@vercel/functions";
+import { nextState } from "@/lib/core/conversation-state";
+import type { ConversationMessage } from "@/lib/core/types";
+import { classifyConversation } from "@/lib/integrations/claude";
+import {
+  parseInboundWebhook,
+  sendSms,
+  type InboundSms
+} from "@/lib/integrations/clicksend";
+import { getLeadRepository } from "@/lib/integrations/data";
+import { notifyFdeForReview } from "@/lib/integrations/slack";
+import { logger } from "@/lib/util/logger";
+
+export const runtime = "nodejs";
+
+export async function POST(req: NextRequest) {
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  let inbound: InboundSms;
+  try {
+    inbound = parseInboundWebhook(raw);
+  } catch (err) {
+    logger.warn("clicksend.webhook.invalid_payload", {
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  logger.info("clicksend.webhook.received", {
+    from: inbound.from,
+    messageId: inbound.messageId
+  });
+
+  waitUntil(processInbound(inbound));
+
+  return NextResponse.json({ ok: true });
+}
+
+async function processInbound(inbound: InboundSms): Promise<void> {
+  const repo = getLeadRepository();
+  const lead = await repo.getActiveLeadByPhone(inbound.from);
+
+  if (!lead) {
+    logger.warn("clicksend.webhook.no_active_lead", {
+      from: inbound.from,
+      messageId: inbound.messageId
+    });
+    return;
+  }
+
+  const priorHistory = await repo.getConversationHistory(lead.id);
+
+  // Build a tentative full thread (with the new inbound) for classification, so
+  // Claude reasons about state in light of the just-arrived message before we
+  // commit it to the DB.
+  const tentativeHistory: ConversationMessage[] = [
+    ...priorHistory,
+    {
+      id: "pending",
+      leadId: lead.id,
+      direction: "inbound",
+      text: inbound.text,
+      timestamp: inbound.timestamp,
+      claudeClassification: null
+    }
+  ];
+
+  let classification;
+  try {
+    classification = await classifyConversation({
+      lead,
+      history: tentativeHistory
+    });
+  } catch (err) {
+    logger.error("clicksend.webhook.classify_failed", {
+      leadId: lead.id,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    await repo.appendMessage({
+      leadId: lead.id,
+      direction: "inbound",
+      text: inbound.text,
+      timestamp: inbound.timestamp
+    });
+    return;
+  }
+
+  await repo.appendMessage({
+    leadId: lead.id,
+    direction: "inbound",
+    text: inbound.text,
+    timestamp: inbound.timestamp,
+    classification
+  });
+
+  const newStatus = nextState(lead.status, classification);
+  if (newStatus !== lead.status) {
+    await repo.updateLeadStatus(lead.id, newStatus);
+    logger.info("clicksend.webhook.status_changed", {
+      leadId: lead.id,
+      from: lead.status,
+      to: newStatus
+    });
+  }
+
+  if (classification.draft_reply) {
+    await sendDraftReply({
+      leadId: lead.id,
+      phone: lead.phone,
+      body: classification.draft_reply
+    });
+    return;
+  }
+
+  await notifyFdeForReview({
+    lead: { ...lead, status: newStatus },
+    history: tentativeHistory,
+    reasoning: classification.reasoning,
+    reason:
+      classification.category === "context_question"
+        ? "context_question"
+        : "uncategorized"
+  });
+}
+
+async function sendDraftReply(input: {
+  leadId: string;
+  phone: string;
+  body: string;
+}): Promise<void> {
+  const repo = getLeadRepository();
+  try {
+    await sendSms({ to: input.phone, body: input.body, leadId: input.leadId });
+  } catch (err) {
+    logger.error("clicksend.webhook.reply_send_failed", {
+      leadId: input.leadId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return;
+  }
+
+  await repo.appendMessage({
+    leadId: input.leadId,
+    direction: "outbound",
+    text: input.body
+  });
+}

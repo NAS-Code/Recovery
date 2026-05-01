@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/eod-checkin",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/end-of-event-virtual",
+      "schedule": "0 14 * * *"
+    }
+  ]
+}
