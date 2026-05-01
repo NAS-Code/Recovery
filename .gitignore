@@ -18,3 +18,5 @@ coverage
 next-env.d.ts
 
 .claude/
+.zz*
+zz-*

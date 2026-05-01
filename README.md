@@ -4,6 +4,9 @@ Standalone prototype of an event concierge no-show recovery service. Designed
 to be lifted into Vendelux + Snowflake later — see [Swapping Postgres for
 Snowflake](#swapping-postgres-for-snowflake).
 
+> **Vendelux integration plan:** [docs/vendelux-integration.md](docs/vendelux-integration.md).
+> Agent conventions: [AGENTS.md](AGENTS.md).
+
 ## What it does
 
 Clients run booths at industry events and pre-schedule meetings with leads. When
