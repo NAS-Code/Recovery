@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getClientContext } from "@/lib/auth/context";
 import { getLeadRepository } from "@/lib/integrations/data";
+import { formatMeetingTime } from "@/lib/util/format";
 import { ClientHeader } from "../_components/ClientHeader";
 import { MarkNoShowButton } from "../_components/MarkNoShowButton";
 import { StatusBadge } from "../_components/StatusBadge";
@@ -50,7 +51,7 @@ export default async function LeadThreadPage({
             <StatusBadge status={lead.status} />
             {lead.scheduledMeetingTime ? (
               <span className="text-xs text-slate-500">
-                Meeting: {lead.scheduledMeetingTime.toLocaleString()}
+                Meeting: {formatMeetingTime(lead.scheduledMeetingTime)}
               </span>
             ) : null}
           </div>

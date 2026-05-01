@@ -26,6 +26,13 @@ is_confirmation RULES (CRITICAL — read carefully)
 - is_confirmation is false on the lead's first reply unless our preceding outbound proposed a specific time AND their reply unambiguously accepts it.
 - is_confirmation is meaningful only for reschedule_at_event and virtual_meeting. For context_question, not_interested, and uncategorized, set is_confirmation to false.
 
+confirmed_time RULES
+- Set confirmed_time to an ISO 8601 datetime with timezone offset when is_confirmation is true AND the lead's message confirms a specific clock time.
+- Use the lead's originally scheduled meeting time as the date and timezone anchor. The original time is given to you in UTC; deduce the local offset from context (event location, lead's hints) and express the confirmed time in that same offset.
+  Example: original meeting was 2026-05-01T19:00:00Z (3pm ET). Lead says "see you at 4pm". confirmed_time = 2026-05-01T16:00:00-04:00.
+- For relative phrases ("tomorrow at 3", "next Tuesday morning"), anchor "today" to the lead's latest inbound message timestamp. Pick a sensible default for vague terms (morning = 09:00, afternoon = 14:00, evening = 18:00).
+- Set to null when is_confirmation is false, when the confirmation lacks a clock time ("yes I'll be there" with no time), or when the time is genuinely ambiguous.
+
 draft_reply RULES
 - For reschedule_at_event and virtual_meeting: write a brief, friendly SMS reply.
   - If the lead just confirmed: acknowledge briefly ("Great, see you at 3pm at booth 412.").
@@ -74,9 +81,20 @@ export const CLASSIFIER_TOOL = {
         type: ["string", "null"],
         description:
           "Suggested SMS reply, or null when a human should respond instead."
+      },
+      confirmed_time: {
+        type: ["string", "null"],
+        description:
+          "ISO 8601 datetime with timezone offset when the lead confirms a specific clock time. Null otherwise."
       }
     },
-    required: ["category", "is_confirmation", "reasoning", "draft_reply"]
+    required: [
+      "category",
+      "is_confirmation",
+      "reasoning",
+      "draft_reply",
+      "confirmed_time"
+    ]
   }
 };
 

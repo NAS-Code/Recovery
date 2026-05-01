@@ -10,7 +10,8 @@ const validInput = {
   category: "reschedule_at_event",
   is_confirmation: true,
   reasoning: "Lead replied '3pm works' to our 3pm proposal.",
-  draft_reply: "Great, see you at 3pm at the booth."
+  draft_reply: "Great, see you at 3pm at the booth.",
+  confirmed_time: "2026-05-01T15:00:00-04:00"
 };
 
 describe("parseClassification — valid payloads", () => {
@@ -24,9 +25,32 @@ describe("parseClassification — valid payloads", () => {
         category: "context_question",
         is_confirmation: false,
         reasoning: "Lead asked who we are.",
-        draft_reply: null
+        draft_reply: null,
+        confirmed_time: null
       })
     ).toMatchObject({ category: "context_question", draft_reply: null });
+  });
+
+  it("accepts null confirmed_time when no specific time was confirmed", () => {
+    const result = parseClassification({
+      category: "reschedule_at_event",
+      is_confirmation: false,
+      reasoning: "General positive intent without a clock time.",
+      draft_reply: "Want me to send some times?",
+      confirmed_time: null
+    });
+    expect(result.confirmed_time).toBeNull();
+  });
+
+  it("preserves confirmed_time as a string for downstream parsing", () => {
+    const result = parseClassification({
+      category: "virtual_meeting",
+      is_confirmation: true,
+      reasoning: "Lead said 'Tuesday 4pm works'.",
+      draft_reply: "Great — see you Tuesday at 4.",
+      confirmed_time: "2026-05-05T16:00:00-04:00"
+    });
+    expect(result.confirmed_time).toBe("2026-05-05T16:00:00-04:00");
   });
 
   it("accepts each valid category", () => {
@@ -42,7 +66,8 @@ describe("parseClassification — valid payloads", () => {
         category: c,
         is_confirmation: false,
         reasoning: "test",
-        draft_reply: null
+        draft_reply: null,
+        confirmed_time: null
       });
       expect(result.category).toBe(c);
     }
@@ -68,6 +93,11 @@ describe("parseClassification — invalid payloads", () => {
 
   it("throws when draft_reply is missing entirely", () => {
     const { draft_reply: _d, ...rest } = validInput;
+    expect(() => parseClassification(rest)).toThrow(ClassifierError);
+  });
+
+  it("throws when confirmed_time is missing", () => {
+    const { confirmed_time: _ct, ...rest } = validInput;
     expect(() => parseClassification(rest)).toThrow(ClassifierError);
   });
 

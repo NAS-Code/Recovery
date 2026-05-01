@@ -27,7 +27,8 @@ const classificationSchema = z.object({
   ]),
   is_confirmation: z.boolean(),
   reasoning: z.string(),
-  draft_reply: z.string().nullable()
+  draft_reply: z.string().nullable(),
+  confirmed_time: z.string().nullable()
 });
 
 export class ClassifierError extends Error {

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { nextState } from "@/lib/core/conversation-state";
-import type { ConversationMessage } from "@/lib/core/types";
+import type { ConversationMessage, LeadStatus } from "@/lib/core/types";
 import { classifyConversation } from "@/lib/integrations/claude";
+import { tryParseIsoDate } from "@/lib/util/format";
 import {
   parseInboundWebhook,
   sendSms,
@@ -109,6 +110,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     });
   }
 
+  await maybeUpdateMeetingTime(repo, lead.id, newStatus, classification.confirmed_time);
+
   if (classification.draft_reply) {
     await sendDraftReply({
       leadId: lead.id,
@@ -126,6 +129,36 @@ async function processInbound(inbound: InboundSms): Promise<void> {
       classification.category === "context_question"
         ? "context_question"
         : "uncategorized"
+  });
+}
+
+const RESCHEDULE_STATUSES: LeadStatus[] = [
+  "confirmed_reschedule",
+  "confirmed_virtual"
+];
+
+async function maybeUpdateMeetingTime(
+  repo: ReturnType<typeof getLeadRepository>,
+  leadId: string,
+  newStatus: LeadStatus,
+  confirmedTime: string | null
+): Promise<void> {
+  if (!confirmedTime) return;
+  if (!RESCHEDULE_STATUSES.includes(newStatus)) return;
+
+  const parsed = tryParseIsoDate(confirmedTime);
+  if (!parsed) {
+    logger.warn("clicksend.webhook.invalid_confirmed_time", {
+      leadId,
+      raw: confirmedTime
+    });
+    return;
+  }
+
+  await repo.updateScheduledMeetingTime(leadId, parsed);
+  logger.info("clicksend.webhook.meeting_time_updated", {
+    leadId,
+    newTime: parsed.toISOString()
   });
 }
 

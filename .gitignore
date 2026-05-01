@@ -11,6 +11,10 @@ dist
 .env.production
 .env.development
 
+*[Cc]reds*
+*[Ss]ecrets*
+*credentials*
+
 *.log
 .DS_Store
 .idea

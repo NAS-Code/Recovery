@@ -37,6 +37,12 @@ export interface ClaudeClassification {
   is_confirmation: boolean;
   reasoning: string;
   draft_reply: string | null;
+  /**
+   * ISO 8601 datetime (with timezone offset) of the time the lead confirmed,
+   * when is_confirmation is true AND a specific time was confirmed.
+   * Null otherwise.
+   */
+  confirmed_time: string | null;
 }
 
 export interface Client {

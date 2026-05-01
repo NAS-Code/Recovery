@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getClientContext } from "@/lib/auth/context";
 import { getLeadRepository } from "@/lib/integrations/data";
+import { formatMeetingTime } from "@/lib/util/format";
 import { ClientHeader } from "./_components/ClientHeader";
 import { MarkNoShowButton } from "./_components/MarkNoShowButton";
 import { StatusBadge } from "./_components/StatusBadge";
@@ -76,6 +77,7 @@ async function DashboardBody({
               <th className="px-4 py-3 font-medium">Lead</th>
               <th className="px-4 py-3 font-medium">Company</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Meeting</th>
               <th className="px-4 py-3 font-medium">Updated</th>
               <th className="px-4 py-3" />
             </tr>
@@ -96,6 +98,9 @@ async function DashboardBody({
                 <td className="px-4 py-3">
                   <StatusBadge status={lead.status} />
                 </td>
+                <td className="px-4 py-3 text-xs text-slate-700">
+                  {formatMeetingTime(lead.scheduledMeetingTime)}
+                </td>
                 <td className="px-4 py-3 text-xs text-slate-500">
                   {lead.updatedAt.toLocaleString()}
                 </td>
@@ -109,7 +114,7 @@ async function DashboardBody({
             {leads.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-4 py-8 text-center text-sm text-slate-500"
                 >
                   No leads for this event.

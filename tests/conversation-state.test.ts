@@ -10,7 +10,8 @@ function classify(
     category,
     is_confirmation,
     reasoning: "test",
-    draft_reply: null
+    draft_reply: null,
+    confirmed_time: null
   };
 }
 
