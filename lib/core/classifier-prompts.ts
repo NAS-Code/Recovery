@@ -19,15 +19,28 @@ CATEGORIES
 - uncategorized: Anything that does not fit cleanly above — ambiguous, off-topic, automated bounces, unclear language.
 
 is_confirmation RULES (CRITICAL — read carefully)
-- is_confirmation is true ONLY when the lead's latest message confirms a SPECIFIC time or plan that we previously proposed in this thread.
-  Example: We said "Want to grab 3pm at the booth?" and they replied "3pm works, see you then." → true
-- is_confirmation is false for general positive intent that lacks a specific plan.
-  Example: "Yeah I'd love to reschedule" with no specific time on the table → false
-- is_confirmation is false on the lead's first reply unless our preceding outbound proposed a specific time AND their reply unambiguously accepts it.
-- is_confirmation is meaningful only for reschedule_at_event and virtual_meeting. For context_question, not_interested, and uncategorized, set is_confirmation to false.
+
+is_confirmation captures whether the meeting is mutually scheduled after this exchange completes. The lead will not always send a follow-up "see you then" message after we agree — once they've proposed a time and we accept, they're done. Don't require a third turn just to confirm.
+
+Set is_confirmation = true when EITHER of these holds:
+
+(a) The lead's latest message confirms a specific time or plan that WE previously proposed in this thread.
+    Example: We said "Want to grab 3pm at the booth?" and they replied "3pm works, see you then." → true
+
+(b) The lead's latest message PROPOSES a specific time AND your draft_reply unambiguously accepts that time. This is the common case — lead suggests "4pm works", you accept, the meeting is booked.
+    Example: Lead says "4pm at the booth works" and your draft_reply says "Great, see you at 4!" → true
+    Counter-example: Lead says "afternoon" and your draft_reply says "How about 3pm?" → false (you're countering, lead hasn't accepted)
+
+Set is_confirmation = false when:
+- The lead has positive intent but no specific time is on the table
+- Your draft_reply proposes a counter-time the lead hasn't accepted yet
+- The conversation is still actively negotiating
+- The category is context_question, not_interested, or uncategorized
+
+Critical: is_confirmation and draft_reply are decided together. If you're going to accept a time the lead proposed, set is_confirmation = true and write an accepting reply in the same turn. Don't draft an acceptance and then mark is_confirmation = false — that's the inconsistency we're avoiding.
 
 confirmed_time RULES
-- Set confirmed_time to an ISO 8601 datetime with timezone offset when is_confirmation is true AND the lead's message confirms a specific clock time.
+- Set confirmed_time to an ISO 8601 datetime with timezone offset when is_confirmation is true AND a specific clock time has been agreed (either case (a) or case (b) above).
 - Use the lead's originally scheduled meeting time as the date and timezone anchor. The original time is given to you in UTC; deduce the local offset from context (event location, lead's hints) and express the confirmed time in that same offset.
   Example: original meeting was 2026-05-01T19:00:00Z (3pm ET). Lead says "see you at 4pm". confirmed_time = 2026-05-01T16:00:00-04:00.
 - For relative phrases ("tomorrow at 3", "next Tuesday morning"), anchor "today" to the lead's latest inbound message timestamp. Pick a sensible default for vague terms (morning = 09:00, afternoon = 14:00, evening = 18:00).
@@ -35,8 +48,10 @@ confirmed_time RULES
 
 draft_reply RULES
 - For reschedule_at_event and virtual_meeting: write a brief, friendly SMS reply.
-  - If the lead just confirmed: acknowledge briefly ("Great, see you at 3pm at booth 412.").
-  - If the lead has intent but no plan yet: propose a concrete next step the concierge can deliver on.
+  - If the lead confirmed a time we previously proposed: acknowledge briefly ("Great, see you at 3pm at booth 412.").
+  - If the lead PROPOSED a workable specific time: accept it directly ("Great, 4pm at the booth works. See you then.") AND set is_confirmation = true.
+  - If the lead has intent but no specific time on the table: propose a concrete next step the concierge can deliver on, and is_confirmation = false.
+  - If the lead's proposed time is vague ("afternoon", "later") or unworkable, counter-propose a specific time, and is_confirmation = false until they accept.
 - For context_question: set draft_reply to null. A human FDE will answer.
 - For not_interested: draft a brief, polite acknowledgment.
 - For uncategorized: set draft_reply to null.
