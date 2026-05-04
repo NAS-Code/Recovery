@@ -18,9 +18,9 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   let raw: unknown;
   try {
-    raw = await req.json();
+    raw = await readBody(req);
   } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
   let inbound: InboundSms;
@@ -41,6 +41,23 @@ export async function POST(req: NextRequest) {
   waitUntil(processInbound(inbound));
 
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Clicksend's "URL" inbound action posts form-urlencoded by default; their
+ * "URL JSON" action posts JSON. Read the raw body once and normalize both
+ * into a plain object the parser can consume.
+ */
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  const text = await req.text();
+  if (!text) return {};
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? parsed : { _raw: parsed };
+  } catch {
+    const params = new URLSearchParams(text);
+    return Object.fromEntries(params);
+  }
 }
 
 async function processInbound(inbound: InboundSms): Promise<void> {
