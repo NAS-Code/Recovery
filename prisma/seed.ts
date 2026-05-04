@@ -24,6 +24,7 @@ async function main() {
       name: "SaaStr Annual 2026",
       startDate,
       endDate,
+      timezone: "America/Los_Angeles",
       clientId: client.id
     }
   });
@@ -134,6 +135,7 @@ async function main() {
       name: "DevSummit 2026",
       startDate,
       endDate,
+      timezone: "America/New_York",
       clientId: otherClient.id
     }
   });

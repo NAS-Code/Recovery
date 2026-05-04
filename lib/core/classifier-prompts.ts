@@ -1,4 +1,4 @@
-import type { ConversationMessage, Lead } from "@/lib/core/types";
+import type { ConversationMessage, Event, Lead } from "@/lib/core/types";
 
 export const CLASSIFIER_SYSTEM_PROMPT = `You are an analyst for an event concierge service. Clients run booths at industry events and pre-schedule meetings with leads at their booth. When a lead does not show up to a scheduled meeting, we text them to recover the relationship — either by rescheduling at the event or by offering a virtual meeting after the event ends.
 
@@ -119,19 +119,30 @@ function formatTimestamp(d: Date): string {
 
 export function buildClassifierUserMessage(
   lead: Lead,
-  history: ConversationMessage[]
+  history: ConversationMessage[],
+  event?: Event | null
 ): string {
   const lines: string[] = [];
 
   lines.push("LEAD CONTEXT");
   lines.push(`Name: ${lead.name}`);
   if (lead.company) lines.push(`Company: ${lead.company}`);
+  if (event) {
+    lines.push(
+      `Event: ${event.name} (${formatTimestamp(event.startDate)} – ${formatTimestamp(event.endDate)}, timezone ${event.timezone})`
+    );
+  }
   if (lead.scheduledMeetingTime) {
     lines.push(
       `Originally scheduled meeting: ${formatTimestamp(lead.scheduledMeetingTime)} (missed)`
     );
   }
   lines.push(`Current status: ${lead.status}`);
+  if (event) {
+    lines.push(
+      `When the lead mentions a clock time without specifying a zone, assume the event timezone (${event.timezone}). When you emit confirmed_time, express it with the offset that timezone has on the date in question.`
+    );
+  }
   lines.push("");
 
   lines.push("CONVERSATION (chronological, most recent last):");

@@ -38,7 +38,7 @@ export default async function DashboardPage() {
       {!event ? (
         <p className="text-slate-600">No events for this client yet.</p>
       ) : (
-        <DashboardBody clientId={ctx.clientId} eventId={event.id} eventName={event.name} startDate={event.startDate} endDate={event.endDate} />
+        <DashboardBody clientId={ctx.clientId} eventId={event.id} eventName={event.name} startDate={event.startDate} endDate={event.endDate} timezone={event.timezone} />
       )}
     </main>
   );
@@ -49,13 +49,15 @@ async function DashboardBody({
   eventId,
   eventName,
   startDate,
-  endDate
+  endDate,
+  timezone
 }: {
   clientId: string;
   eventId: string;
   eventName: string;
   startDate: Date;
   endDate: Date;
+  timezone: string;
 }) {
   const repo = getLeadRepository();
   const allLeads = await repo.getLeadsForEvent(eventId);
@@ -99,7 +101,7 @@ async function DashboardBody({
                   <StatusBadge status={lead.status} />
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-700">
-                  {formatMeetingTime(lead.scheduledMeetingTime)}
+                  {formatMeetingTime(lead.scheduledMeetingTime, timezone)}
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">
                   {lead.updatedAt.toLocaleString()}

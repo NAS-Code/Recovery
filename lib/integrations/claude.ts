@@ -9,6 +9,7 @@ import {
 import type {
   ClaudeClassification,
   ConversationMessage,
+  Event,
   Lead
 } from "@/lib/core/types";
 import { logger } from "@/lib/util/logger";
@@ -62,6 +63,7 @@ function getClient(): Anthropic {
 export interface ClassifyInput {
   lead: Lead;
   history: ConversationMessage[];
+  event?: Event | null;
 }
 
 export async function classifyConversation(
@@ -69,7 +71,11 @@ export async function classifyConversation(
 ): Promise<ClaudeClassification> {
   const client = getClient();
   const model = process.env.CLAUDE_MODEL ?? DEFAULT_MODEL;
-  const userMessage = buildClassifierUserMessage(input.lead, input.history);
+  const userMessage = buildClassifierUserMessage(
+    input.lead,
+    input.history,
+    input.event
+  );
 
   const startedAt = Date.now();
   logger.info("claude.classify.start", {

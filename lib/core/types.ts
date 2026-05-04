@@ -55,6 +55,8 @@ export interface Event {
   name: string;
   startDate: Date;
   endDate: Date;
+  /** IANA timezone identifier, e.g. "America/Los_Angeles". */
+  timezone: string;
   clientId: string;
 }
 

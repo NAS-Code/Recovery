@@ -39,6 +39,7 @@ model Event {
   name      String
   startDate DateTime @map("start_date")
   endDate   DateTime @map("end_date")
+  timezone  String   @default("America/New_York")
   clientId  String   @map("client_id")
   client    Client   @relation(fields: [clientId], references: [id])
   leads     Lead[]

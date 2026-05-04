@@ -4,7 +4,7 @@ import {
   parseClassification
 } from "@/lib/integrations/claude";
 import { buildClassifierUserMessage } from "@/lib/core/classifier-prompts";
-import type { ConversationMessage, Lead } from "@/lib/core/types";
+import type { ConversationMessage, Event, Lead } from "@/lib/core/types";
 
 const validInput = {
   category: "reschedule_at_event",
@@ -114,6 +114,15 @@ describe("parseClassification — invalid payloads", () => {
   });
 });
 
+const baseEvent: Event = {
+  id: "event_1",
+  name: "SaaStr Annual 2026",
+  startDate: new Date("2026-04-29T00:00:00Z"),
+  endDate: new Date("2026-05-02T00:00:00Z"),
+  timezone: "America/Los_Angeles",
+  clientId: "client_1"
+};
+
 describe("buildClassifierUserMessage", () => {
   const lead: Lead = {
     id: "lead_1",
@@ -155,6 +164,19 @@ describe("buildClassifierUserMessage", () => {
     expect(msg).toContain("Alice Johnson");
     expect(msg).toContain("Target Industries");
     expect(msg).toContain("no_show");
+  });
+
+  it("includes event timezone when an event is supplied, with timezone-anchoring instruction", () => {
+    const msg = buildClassifierUserMessage(lead, history, baseEvent);
+    expect(msg).toContain("SaaStr Annual 2026");
+    expect(msg).toContain("America/Los_Angeles");
+    expect(msg.toLowerCase()).toContain("assume the event timezone");
+  });
+
+  it("omits event line when no event is supplied", () => {
+    const msg = buildClassifierUserMessage(lead, history);
+    expect(msg).not.toContain("SaaStr");
+    expect(msg).not.toContain("America/Los_Angeles");
   });
 
   it("renders messages in chronological order with direction labels", () => {

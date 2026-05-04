@@ -89,11 +89,14 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     }
   ];
 
+  const event = await repo.getCurrentEventForClient(lead.clientId);
+
   let classification;
   try {
     classification = await classifyConversation({
       lead,
-      history: tentativeHistory
+      history: tentativeHistory,
+      event
     });
   } catch (err) {
     logger.error("clicksend.webhook.classify_failed", {

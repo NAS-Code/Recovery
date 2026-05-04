@@ -27,7 +27,11 @@ export default async function LeadThreadPage({
   if (!client) redirect("/sign-in");
   if (!lead || lead.clientId !== ctx.clientId) notFound();
 
-  const history = await repo.getConversationHistory(lead.id);
+  const [history, event] = await Promise.all([
+    repo.getConversationHistory(lead.id),
+    repo.getCurrentEventForClient(ctx.clientId)
+  ]);
+  const timezone = event?.timezone ?? "UTC";
 
   return (
     <main className="mx-auto max-w-3xl p-8">
@@ -51,7 +55,7 @@ export default async function LeadThreadPage({
             <StatusBadge status={lead.status} />
             {lead.scheduledMeetingTime ? (
               <span className="text-xs text-slate-500">
-                Meeting: {formatMeetingTime(lead.scheduledMeetingTime)}
+                Meeting: {formatMeetingTime(lead.scheduledMeetingTime, timezone)}
               </span>
             ) : null}
           </div>

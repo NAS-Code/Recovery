@@ -47,6 +47,7 @@ function toDomainEvent(row: PrismaEvent): Event {
     name: row.name,
     startDate: row.startDate,
     endDate: row.endDate,
+    timezone: row.timezone,
     clientId: row.clientId
   };
 }
