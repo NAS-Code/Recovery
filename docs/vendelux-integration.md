@@ -19,6 +19,93 @@ taking, and the open questions for the platform team.
 | Observability | Datadog + Sentry + PostHog | JSON-line logger | Add when productionizing |
 | Data orchestration | Dagster Cloud | n/a | Emit Snowflake events; integrate with Dagster |
 
+## V1.0 scope (revised)
+
+Originally I assumed concierge would call Vendelux's Django REST API for read
+data. After surveying the actual Snowflake schema, **reads come from Snowflake
+views directly** — Vendelux already aggregates exactly what we need.
+
+### Read sources (Snowflake)
+
+| What | View | Filter |
+| --- | --- | --- |
+| Active campaigns | `SILVER.SLOANE_V2.V_VDX_CAMPAIGN_CONFIG` | `event_date_end >= CURRENT_DATE` |
+| Leads for a campaign | `DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS` | `TEAM_ID = ? AND EVENT_ID = ?` |
+| Lead phone numbers | Same view: `NUMBER_DIALED` column | — |
+
+A "campaign" is the natural composite `(team_id, event_id)`. Concierge reads
+both views as live data — no caching, no replication, no Django middleman.
+
+### Write surface (concierge state, side-stored in Postgres)
+
+When concierge marks a lead `no_show`, transitions through reschedule states,
+or updates a meeting time, that state lives **only in concierge's Postgres**
+— it does not push back to Vendelux MySQL. Vendelux's view of the lead's
+status (`Meeting Booked`, `Meeting Initiated`, etc.) stays unchanged.
+Concierge's status (`no_show`, `confirmed_reschedule`, etc.) is an
+orthogonal layer FDEs see only via the concierge dashboard.
+
+This is "pure side-store" — chosen over full bidirectional sync because:
+
+- It avoids modifying Vendelux's MySQL schema during prototype validation
+- Concierge state is fundamentally a different concept (recovery flow, not
+  lead lifecycle)
+- Removing or rolling back concierge has zero impact on Vendelux
+
+If we later want analytics consistency, emit concierge state changes into
+Snowflake via Dagster (Phase 4 below). Don't push to MySQL.
+
+### "Active" campaign definition
+
+`event_date_end >= CURRENT_DATE`. Once the event is over, no-show recovery is
+done by definition — the cron-driven end-of-event virtual offer fires on the
+last day, then the campaign falls out of the picker. Sub-campaign / Instantly
+campaign status fields are irrelevant to concierge.
+
+### What stays the same
+
+- State machine (`lib/core/conversation-state.ts`)
+- Claude classifier prompt + tool schema
+- Webhook handlers (Clicksend in/out, scheduling)
+- Cron jobs (EOD checkin, end-of-event virtual)
+- Conversation table in Postgres
+
+### What changes
+
+- New `lib/integrations/snowflake.ts` — connection pool, query helpers
+- New `CampaignRepository` interface, Snowflake-backed implementation
+- Refactor `LeadRepository`:
+  - `getLeadsForCampaign(teamId, eventId)` reads from Snowflake
+  - `getLead`, `getActiveLeadByPhone` etc. read from concierge Postgres
+    (cached on first noshow mark)
+  - `appendMessage` and conversation history continue to live in Postgres
+- New page `/campaigns` lists active campaigns (replaces `/dashboard` index)
+- `/campaigns/[teamId]/[eventId]` is the per-campaign dashboard
+- Mark-no-show flow: caches the Snowflake lead row into concierge Postgres
+  on first click, then operates as today
+
+### Required Snowflake credentials
+
+- `SNOWFLAKE_ACCOUNT` (e.g., `hxanzth-plb04418` from the Sigma metadata)
+- `SNOWFLAKE_USERNAME`
+- `SNOWFLAKE_PASSWORD` (or keypair — recommend keypair for prod, password for prototype)
+- `SNOWFLAKE_WAREHOUSE` (likely a small warehouse for OLTP-style queries)
+- `SNOWFLAKE_DATABASE` (`SILVER` for the campaign views, `DATA_OPS` for the
+  Sigma leads view — the queries cross databases)
+- `SNOWFLAKE_ROLE` (read-only role with `SELECT` on the views above)
+
+### Open items deferred past V1.0
+
+- **Auth swap to Auth0.** Stays as cookie placeholder for V1; the cookie now
+  picks a `team_id` (from Snowflake) instead of a Postgres `client_id`. Real
+  Auth0 integration is Phase 1 (below).
+- **`mysql_user_id` joins.** The Sigma view exposes `LEAD_ID` as the
+  Vendelux-side identifier. If the noshow API ever needs to talk back to
+  Vendelux MySQL, that's the join key. Not needed for pure side-store.
+- **Snowflake credit cost.** Each campaign list and lead list query spins up
+  the warehouse. For low-volume prototype, cost is trivial. At scale we'd
+  add a short-lived in-process cache (~30s TTL).
+
 ## Decision: Path A — standalone service, calls Vendelux APIs
 
 Concierge stays Next.js on Vercel and consumes Vendelux's existing Django REST
