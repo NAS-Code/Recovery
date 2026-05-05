@@ -50,6 +50,21 @@ export interface Client {
   name: string;
 }
 
+/**
+ * A Vendelux campaign — a (team, event) pair from
+ * SILVER.SLOANE_V2.V_VDX_CAMPAIGN_CONFIG. Multiple teams may run campaigns
+ * for the same event; the composite (teamId, eventId) is the identifier.
+ */
+export interface Campaign {
+  vdxCampaignId: string;
+  teamId: string;
+  teamName: string;
+  eventId: string;
+  eventName: string;
+  eventStartDate: Date;
+  eventEndDate: Date;
+}
+
 export interface Event {
   id: string;
   name: string;
