@@ -59,6 +59,7 @@ model Lead {
   client               Client         @relation(fields: [clientId], references: [id])
   eventId              String         @map("event_id")
   event                Event          @relation(fields: [eventId], references: [id])
+  vendeluxLeadId       String?        @unique @map("vendelux_lead_id")
   nativeSchedulingLink String?        @map("native_scheduling_link")
   fdeOwnerSlackId      String?        @map("fde_owner_slack_id")
   status               LeadStatus     @default(scheduled)

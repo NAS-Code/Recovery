@@ -83,6 +83,8 @@ export interface Lead {
   company: string | null;
   clientId: string;
   eventId: string;
+  /** Snowflake LEAD_ID — set when this row caches a Vendelux lead from the warehouse. */
+  vendeluxLeadId: string | null;
   nativeSchedulingLink: string | null;
   fdeOwnerSlackId: string | null;
   status: LeadStatus;

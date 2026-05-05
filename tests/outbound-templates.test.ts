@@ -15,6 +15,7 @@ const baseLead: Lead = {
   eventId: "event_1",
   nativeSchedulingLink: null,
   fdeOwnerSlackId: null,
+  vendeluxLeadId: null,
   status: "scheduled",
   scheduledMeetingTime: null,
   createdAt: new Date(),

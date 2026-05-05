@@ -15,7 +15,11 @@ import {
   type Lead,
   type LeadStatus
 } from "@/lib/core/types";
-import type { AppendMessageInput, LeadRepository } from "@/lib/integrations/data";
+import type {
+  AppendMessageInput,
+  CacheSnowflakeLeadInput,
+  LeadRepository
+} from "@/lib/integrations/data";
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
@@ -28,6 +32,7 @@ function toDomainLead(row: PrismaLead): Lead {
     company: row.company,
     clientId: row.clientId,
     eventId: row.eventId,
+    vendeluxLeadId: row.vendeluxLeadId,
     nativeSchedulingLink: row.nativeSchedulingLink,
     fdeOwnerSlackId: row.fdeOwnerSlackId,
     status: row.status as LeadStatus,
@@ -175,6 +180,85 @@ export class PrismaLeadRepository implements LeadRepository {
   async listClients(): Promise<Client[]> {
     const rows = await prisma.client.findMany({ orderBy: { name: "asc" } });
     return rows.map(toDomainClient);
+  }
+
+  async getLeadByVendeluxId(vendeluxLeadId: string): Promise<Lead | null> {
+    const row = await prisma.lead.findUnique({ where: { vendeluxLeadId } });
+    return row ? toDomainLead(row) : null;
+  }
+
+  async getLeadStatesByVendeluxIds(
+    ids: string[]
+  ): Promise<Map<string, Lead>> {
+    if (ids.length === 0) return new Map();
+    const rows = await prisma.lead.findMany({
+      where: { vendeluxLeadId: { in: ids } }
+    });
+    const out = new Map<string, Lead>();
+    for (const row of rows) {
+      if (row.vendeluxLeadId) out.set(row.vendeluxLeadId, toDomainLead(row));
+    }
+    return out;
+  }
+
+  async cacheSnowflakeLead(input: CacheSnowflakeLeadInput): Promise<Lead> {
+    // Snowflake teamId/eventId are stable identifiers — reuse them as the
+    // Postgres FK targets. The Client/Event tables become a "we've operated
+    // on this team/event" registry rather than seeded reference data.
+    await prisma.client.upsert({
+      where: { id: input.teamId },
+      create: { id: input.teamId, name: input.teamName },
+      update: { name: input.teamName }
+    });
+
+    await prisma.event.upsert({
+      where: { id: input.eventId },
+      create: {
+        id: input.eventId,
+        name: input.eventName,
+        startDate: input.eventStartDate,
+        endDate: input.eventEndDate,
+        clientId: input.teamId
+      },
+      update: {
+        name: input.eventName,
+        startDate: input.eventStartDate,
+        endDate: input.eventEndDate
+      }
+    });
+
+    const existing = await prisma.lead.findUnique({
+      where: { vendeluxLeadId: input.vendeluxLeadId }
+    });
+
+    if (existing) {
+      const updated = await prisma.lead.update({
+        where: { id: existing.id },
+        data: {
+          name: input.name,
+          phone: input.phone,
+          email: input.email,
+          company: input.company,
+          scheduledMeetingTime: input.scheduledMeetingTime ?? existing.scheduledMeetingTime
+        }
+      });
+      return toDomainLead(updated);
+    }
+
+    const created = await prisma.lead.create({
+      data: {
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        company: input.company,
+        clientId: input.teamId,
+        eventId: input.eventId,
+        vendeluxLeadId: input.vendeluxLeadId,
+        scheduledMeetingTime: input.scheduledMeetingTime,
+        status: "scheduled"
+      }
+    });
+    return toDomainLead(created);
   }
 
   async getRecentlyEndedEvents(
