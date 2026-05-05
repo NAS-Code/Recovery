@@ -85,7 +85,9 @@ export async function listLeadsForCampaign(
   const rows = await query<LeadRow>(
     `SELECT ${LEAD_COLUMNS}
      FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
-     WHERE TEAM_ID = ? AND EVENT_ID = ?
+     WHERE TEAM_ID = ?
+       AND EVENT_ID = ?
+       AND STATUS = 'Meeting Booked'
      ORDER BY DATE_MEETING_BOOKED_FOR_1 ASC NULLS LAST, LEAD_NAME ASC`,
     [teamId, eventId]
   );
