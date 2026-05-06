@@ -13,6 +13,7 @@ function lead(overrides: Partial<CampaignLead> = {}): CampaignLead {
     email: null,
     company: null,
     phone: null,
+    ocm: null,
     vendeluxStatus: null,
     meetingDate: new Date("2026-05-20T00:00:00Z"),
     meetingTimeRaw: "3pm",

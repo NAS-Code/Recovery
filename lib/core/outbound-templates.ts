@@ -15,11 +15,12 @@ function firstName(fullName: string): string {
 }
 
 function senderIntro(ctx?: SenderContext): string {
-  const agent = ctx?.agentName?.trim();
+  const agentFull = ctx?.agentName?.trim();
+  const agentFirst = agentFull ? agentFull.split(/\s+/)[0] : null;
   const company = ctx?.clientName?.trim();
-  if (agent && company) return `This is ${agent} from ${company}. `;
+  if (agentFirst && company) return `This is ${agentFirst} from ${company}. `;
   if (company) return `This is the team at ${company}. `;
-  if (agent) return `This is ${agent}. `;
+  if (agentFirst) return `This is ${agentFirst}. `;
   return "";
 }
 

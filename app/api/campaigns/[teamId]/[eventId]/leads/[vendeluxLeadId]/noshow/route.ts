@@ -60,9 +60,12 @@ export async function POST(
     );
   }
 
-  // Resolve agent persona: Snowflake sub-campaign → env var fallback
+  // Resolve agent persona: sub-campaign AGENT_PERSONAS → ONSITE_CONTACT_NAME → lead OCM → env var
   const agentPersonaName =
-    subCampaignCtx?.agentPersonaName || process.env.AGENT_PERSONA_NAME || null;
+    subCampaignCtx?.agentPersonaName
+    || snowflakeLead.ocm
+    || process.env.AGENT_PERSONA_NAME
+    || null;
 
   const lead = await repo.cacheSnowflakeLead({
     vendeluxLeadId,

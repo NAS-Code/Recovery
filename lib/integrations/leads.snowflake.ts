@@ -18,6 +18,8 @@ export interface CampaignLead {
   email: string | null;
   company: string | null;
   phone: string | null;
+  /** Onsite Contact Manager — the Vendelux rep who booked the meeting with this lead. */
+  ocm: string | null;
   vendeluxStatus: string | null;
   meetingDate: Date | null;
   meetingTimeRaw: string | null;
@@ -34,6 +36,7 @@ interface LeadRow {
   EMAIL: string | null;
   COMPANY: string | null;
   NUMBER_DIALED: string | null;
+  OCM: string | null;
   STATUS: string | null;
   DATE_MEETING_BOOKED_FOR_1: Date | null;
   TIME_MEETING_BOOKED_FOR_1: string | null;
@@ -51,6 +54,7 @@ function toDomain(row: LeadRow): CampaignLead {
     email: row.EMAIL,
     company: row.COMPANY,
     phone: row.NUMBER_DIALED,
+    ocm: row.OCM ?? null,
     vendeluxStatus: row.STATUS,
     meetingDate: row.DATE_MEETING_BOOKED_FOR_1
       ? new Date(row.DATE_MEETING_BOOKED_FOR_1)
@@ -70,6 +74,7 @@ const LEAD_COLUMNS = `
   EMAIL,
   COMPANY,
   NUMBER_DIALED,
+  OCM,
   STATUS,
   DATE_MEETING_BOOKED_FOR_1,
   TIME_MEETING_BOOKED_FOR_1,
@@ -181,6 +186,7 @@ export interface SubCampaignContext {
 
 interface SubCampaignRow {
   AGENT_PERSONAS: unknown[] | null;
+  ONSITE_CONTACT_NAME: string | null;
   BOOTH_LOCATION: string | null;
   BOOKING_LINK: string | null;
 }
@@ -188,8 +194,7 @@ interface SubCampaignRow {
 /**
  * Fetch the sub-campaign context for a given campaign (team + event).
  * A campaign may have multiple sub-campaigns; we take the first one with
- * a non-empty AGENT_PERSONAS array, falling back to the first row for
- * booth/booking data.
+ * a non-empty AGENT_PERSONAS array, falling back to ONSITE_CONTACT_NAME.
  */
 export async function getSubCampaignContext(
   teamId: string,
@@ -197,9 +202,10 @@ export async function getSubCampaignContext(
 ): Promise<SubCampaignContext | null> {
   const rows = await query<SubCampaignRow>(
     `SELECT
-       AGENT_PERSONAS   AS "AGENT_PERSONAS",
-       BOOTH_LOCATION   AS "BOOTH_LOCATION",
-       BOOKING_LINK     AS "BOOKING_LINK"
+       AGENT_PERSONAS       AS "AGENT_PERSONAS",
+       ONSITE_CONTACT_NAME  AS "ONSITE_CONTACT_NAME",
+       BOOTH_LOCATION       AS "BOOTH_LOCATION",
+       BOOKING_LINK         AS "BOOKING_LINK"
      FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
      WHERE TEAM_ID = ? AND EVENT_ID = ?
      ORDER BY LAST_UPDATED_AT DESC
@@ -222,6 +228,16 @@ export async function getSubCampaignContext(
         personaName = String((first as { name: unknown }).name).trim() || null;
       }
       if (personaName) break;
+    }
+  }
+
+  // Fallback: ONSITE_CONTACT_NAME from the first row that has one
+  if (!personaName) {
+    for (const row of rows) {
+      if (row.ONSITE_CONTACT_NAME?.trim()) {
+        personaName = row.ONSITE_CONTACT_NAME.trim();
+        break;
+      }
     }
   }
 

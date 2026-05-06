@@ -50,10 +50,11 @@ describe("buildFirstNoShowSms", () => {
     expect(msg).toMatch(/^Hi Madonna,/);
   });
 
-  it("includes agent persona and client name when provided", () => {
+  it("includes first name of agent persona and client name when provided", () => {
     const ctx: SenderContext = { agentName: "Sloane Royale", clientName: "Vendelux" };
     const msg = buildFirstNoShowSms(baseLead, ctx);
-    expect(msg).toContain("This is Sloane Royale from Vendelux.");
+    expect(msg).toContain("This is Sloane from Vendelux.");
+    expect(msg).not.toContain("Royale");
   });
 
   it("includes only client name when no agent persona", () => {
@@ -75,9 +76,10 @@ describe("buildVirtualOfferSms", () => {
     expect(msg.toLowerCase()).toContain("virtual");
   });
 
-  it("includes sender intro when context is provided", () => {
+  it("includes first name of agent persona when context is provided", () => {
     const ctx: SenderContext = { agentName: "Sloane Royale", clientName: "Vendelux" };
     const msg = buildVirtualOfferSms(baseLead, ctx);
-    expect(msg).toContain("This is Sloane Royale from Vendelux.");
+    expect(msg).toContain("This is Sloane from Vendelux.");
+    expect(msg).not.toContain("Royale");
   });
 });
