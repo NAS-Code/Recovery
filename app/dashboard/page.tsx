@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getClientContext } from "@/lib/auth/context";
 import { getLeadRepository } from "@/lib/integrations/data";
 import { formatMeetingTime } from "@/lib/util/format";
+import { AutoRefresh } from "@/app/_components/AutoRefresh";
 import { ClientHeader } from "./_components/ClientHeader";
 import { MarkNoShowButton } from "./_components/MarkNoShowButton";
 import { StatusBadge } from "./_components/StatusBadge";
@@ -33,6 +34,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-5xl p-8">
+      <AutoRefresh intervalMs={5000} />
       <ClientHeader clientName={client.name} />
 
       {!event ? (

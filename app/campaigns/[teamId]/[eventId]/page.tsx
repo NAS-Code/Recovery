@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AutoRefresh } from "@/app/_components/AutoRefresh";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { getLeadRepository } from "@/lib/integrations/data";
 import {
@@ -64,6 +65,7 @@ export default async function CampaignDashboardPage({
 
   return (
     <main className="mx-auto max-w-6xl p-8">
+      <AutoRefresh intervalMs={5000} />
       <Link
         href="/campaigns"
         className="text-xs text-slate-500 hover:underline"
