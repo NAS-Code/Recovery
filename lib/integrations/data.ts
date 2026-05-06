@@ -29,6 +29,10 @@ export interface CacheSnowflakeLeadInput {
   eventName: string;
   eventStartDate: Date;
   eventEndDate: Date;
+  /** Agent persona name from sub-campaign config, e.g. "Sloane Royale". */
+  agentPersonaName?: string | null;
+  /** Booth location at the event, e.g. "6513". */
+  boothLocation?: string | null;
   name: string;
   phone: string;
   email: string | null;

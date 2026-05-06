@@ -120,6 +120,8 @@ const baseEvent: Event = {
   startDate: new Date("2026-04-29T00:00:00Z"),
   endDate: new Date("2026-05-02T00:00:00Z"),
   timezone: "America/Los_Angeles",
+  agentPersonaName: null,
+  boothLocation: null,
   clientId: "client_1"
 };
 

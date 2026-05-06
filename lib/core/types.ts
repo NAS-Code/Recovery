@@ -72,6 +72,10 @@ export interface Event {
   endDate: Date;
   /** IANA timezone identifier, e.g. "America/Los_Angeles". */
   timezone: string;
+  /** Agent persona name for outbound SMS, e.g. "Sloane Royale". Sourced from Snowflake sub-campaign config. */
+  agentPersonaName: string | null;
+  /** Booth location at the event, e.g. "6513". */
+  boothLocation: string | null;
   clientId: string;
 }
 

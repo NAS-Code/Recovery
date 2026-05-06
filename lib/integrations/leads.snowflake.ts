@@ -168,3 +168,69 @@ export function vendeluxStatusToBadge(status: string | null): string {
 export type CampaignLeadConcierge = CampaignLead & {
   concierge: { status: LeadStatus; scheduledMeetingTime: Date | null } | null;
 };
+
+// ---------------------------------------------------------------------------
+// Sub-campaign config — agent persona, booth, booking link
+// ---------------------------------------------------------------------------
+
+export interface SubCampaignContext {
+  agentPersonaName: string | null;
+  boothLocation: string | null;
+  bookingLink: string | null;
+}
+
+interface SubCampaignRow {
+  AGENT_PERSONAS: unknown[] | null;
+  BOOTH_LOCATION: string | null;
+  BOOKING_LINK: string | null;
+}
+
+/**
+ * Fetch the sub-campaign context for a given campaign (team + event).
+ * A campaign may have multiple sub-campaigns; we take the first one with
+ * a non-empty AGENT_PERSONAS array, falling back to the first row for
+ * booth/booking data.
+ */
+export async function getSubCampaignContext(
+  teamId: string,
+  eventId: string
+): Promise<SubCampaignContext | null> {
+  const rows = await query<SubCampaignRow>(
+    `SELECT
+       AGENT_PERSONAS   AS "AGENT_PERSONAS",
+       BOOTH_LOCATION   AS "BOOTH_LOCATION",
+       BOOKING_LINK     AS "BOOKING_LINK"
+     FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
+     WHERE TEAM_ID = ? AND EVENT_ID = ?
+     ORDER BY LAST_UPDATED_AT DESC
+     LIMIT 5`,
+    [teamId, eventId]
+  );
+
+  if (rows.length === 0) return null;
+
+  // Find the first row with a populated AGENT_PERSONAS array
+  let personaName: string | null = null;
+  for (const row of rows) {
+    const personas = row.AGENT_PERSONAS;
+    if (Array.isArray(personas) && personas.length > 0) {
+      // AGENT_PERSONAS can be an array of strings or objects with a "name" field
+      const first = personas[0];
+      if (typeof first === "string" && first.trim()) {
+        personaName = first.trim();
+      } else if (first && typeof first === "object" && "name" in first) {
+        personaName = String((first as { name: unknown }).name).trim() || null;
+      }
+      if (personaName) break;
+    }
+  }
+
+  // Use the first row for booth/booking (most recently updated sub-campaign)
+  const primary = rows[0];
+
+  return {
+    agentPersonaName: personaName,
+    boothLocation: primary.BOOTH_LOCATION ?? null,
+    bookingLink: primary.BOOKING_LINK ?? null
+  };
+}

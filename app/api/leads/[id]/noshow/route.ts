@@ -33,9 +33,12 @@ export async function POST(
     );
   }
 
-  const client = await repo.getClient(ctx.clientId);
+  const [client, event] = await Promise.all([
+    repo.getClient(ctx.clientId),
+    repo.getCurrentEventForClient(ctx.clientId)
+  ]);
   const senderCtx = {
-    agentName: process.env.AGENT_PERSONA_NAME ?? null,
+    agentName: event?.agentPersonaName || process.env.AGENT_PERSONA_NAME || null,
     clientName: client?.name ?? null
   };
 

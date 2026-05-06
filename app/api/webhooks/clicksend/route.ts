@@ -94,8 +94,9 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     repo.getClient(lead.clientId)
   ]);
 
+  // Agent persona: cached on Event from Snowflake sub-campaign → env fallback
   const senderCtx = {
-    agentName: process.env.AGENT_PERSONA_NAME ?? null,
+    agentName: event?.agentPersonaName || process.env.AGENT_PERSONA_NAME || null,
     clientName: client?.name ?? null
   };
 

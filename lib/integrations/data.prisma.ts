@@ -53,6 +53,8 @@ function toDomainEvent(row: PrismaEvent): Event {
     startDate: row.startDate,
     endDate: row.endDate,
     timezone: row.timezone,
+    agentPersonaName: row.agentPersonaName,
+    boothLocation: row.boothLocation,
     clientId: row.clientId
   };
 }
@@ -218,12 +220,16 @@ export class PrismaLeadRepository implements LeadRepository {
         name: input.eventName,
         startDate: input.eventStartDate,
         endDate: input.eventEndDate,
+        agentPersonaName: input.agentPersonaName ?? null,
+        boothLocation: input.boothLocation ?? null,
         clientId: input.teamId
       },
       update: {
         name: input.eventName,
         startDate: input.eventStartDate,
-        endDate: input.eventEndDate
+        endDate: input.eventEndDate,
+        ...(input.agentPersonaName !== undefined ? { agentPersonaName: input.agentPersonaName } : {}),
+        ...(input.boothLocation !== undefined ? { boothLocation: input.boothLocation } : {})
       }
     });
 

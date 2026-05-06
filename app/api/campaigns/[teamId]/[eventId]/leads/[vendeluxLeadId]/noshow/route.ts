@@ -6,7 +6,8 @@ import { sendSms } from "@/lib/integrations/clicksend";
 import { getLeadRepository } from "@/lib/integrations/data";
 import {
   combineMeetingDateTime,
-  getLeadById
+  getLeadById,
+  getSubCampaignContext
 } from "@/lib/integrations/leads.snowflake";
 import { logger } from "@/lib/util/logger";
 
@@ -40,9 +41,10 @@ export async function POST(
     );
   }
 
-  const [snowflakeLead, campaign] = await Promise.all([
+  const [snowflakeLead, campaign, subCampaignCtx] = await Promise.all([
     getLeadById(vendeluxLeadId),
-    getCampaignRepository().getCampaign(teamId, eventId)
+    getCampaignRepository().getCampaign(teamId, eventId),
+    getSubCampaignContext(teamId, eventId)
   ]);
 
   if (!snowflakeLead) {
@@ -58,6 +60,10 @@ export async function POST(
     );
   }
 
+  // Resolve agent persona: Snowflake sub-campaign → env var fallback
+  const agentPersonaName =
+    subCampaignCtx?.agentPersonaName || process.env.AGENT_PERSONA_NAME || null;
+
   const lead = await repo.cacheSnowflakeLead({
     vendeluxLeadId,
     teamId: campaign.teamId,
@@ -66,6 +72,8 @@ export async function POST(
     eventName: campaign.eventName,
     eventStartDate: campaign.eventStartDate,
     eventEndDate: campaign.eventEndDate,
+    agentPersonaName,
+    boothLocation: subCampaignCtx?.boothLocation ?? null,
     name: snowflakeLead.name,
     phone: snowflakeLead.phone,
     email: snowflakeLead.email,
@@ -74,7 +82,7 @@ export async function POST(
   });
 
   const senderCtx = {
-    agentName: process.env.AGENT_PERSONA_NAME ?? null,
+    agentName: agentPersonaName,
     clientName: campaign.teamName
   };
 
