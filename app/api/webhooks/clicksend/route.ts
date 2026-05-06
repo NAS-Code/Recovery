@@ -89,14 +89,23 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     }
   ];
 
-  const event = await repo.getCurrentEventForClient(lead.clientId);
+  const [event, client] = await Promise.all([
+    repo.getCurrentEventForClient(lead.clientId),
+    repo.getClient(lead.clientId)
+  ]);
+
+  const senderCtx = {
+    agentName: process.env.AGENT_PERSONA_NAME ?? null,
+    clientName: client?.name ?? null
+  };
 
   let classification;
   try {
     classification = await classifyConversation({
       lead,
       history: tentativeHistory,
-      event
+      event,
+      ctx: senderCtx
     });
   } catch (err) {
     logger.error("clicksend.webhook.classify_failed", {

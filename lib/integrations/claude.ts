@@ -4,7 +4,8 @@ import {
   CLASSIFIER_SYSTEM_PROMPT,
   CLASSIFIER_TOOL,
   CLASSIFIER_TOOL_NAME,
-  buildClassifierUserMessage
+  buildClassifierUserMessage,
+  type ClassifierContext
 } from "@/lib/core/classifier-prompts";
 import type {
   ClaudeClassification,
@@ -64,6 +65,8 @@ export interface ClassifyInput {
   lead: Lead;
   history: ConversationMessage[];
   event?: Event | null;
+  /** Agent persona + client company — threaded into the user message for identity. */
+  ctx?: ClassifierContext;
 }
 
 export async function classifyConversation(
@@ -74,7 +77,8 @@ export async function classifyConversation(
   const userMessage = buildClassifierUserMessage(
     input.lead,
     input.history,
-    input.event
+    input.event,
+    input.ctx
   );
 
   const startedAt = Date.now();

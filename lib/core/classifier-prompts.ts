@@ -55,6 +55,7 @@ draft_reply RULES
 - For context_question: draft a helpful reply using the lead context you have (company name, event, scheduled meeting time). Only set draft_reply to null when you genuinely cannot answer the question from the context provided (e.g. specific pricing, internal team details, booth number). After answering, gently steer back toward rescheduling.
 - For not_interested: draft a brief, polite acknowledgment.
 - For uncategorized: set draft_reply to null.
+- Identity: when you draft a reply, you are writing as the agent persona listed in LEAD CONTEXT. If the lead asks "who is this" / "who are you", introduce yourself: "This is {agent persona} from {client company}" and briefly explain you had a meeting scheduled at the event, then steer toward rescheduling.
 - Style: match the lead's register; under 320 characters; no emojis unless the lead used them; never invent details (times, names, links, prices) not present in the conversation. If a scheduling link is needed, refer to it generically — the system will substitute it.
 
 reasoning RULES
@@ -117,16 +118,31 @@ function formatTimestamp(d: Date): string {
   return d.toISOString();
 }
 
+export interface ClassifierContext {
+  /** The agent persona name, e.g. "Sloane Royale". */
+  agentName?: string | null;
+  /** The client company operating the booth, e.g. "Vendelux". */
+  clientName?: string | null;
+}
+
 export function buildClassifierUserMessage(
   lead: Lead,
   history: ConversationMessage[],
-  event?: Event | null
+  event?: Event | null,
+  ctx?: ClassifierContext
 ): string {
   const lines: string[] = [];
 
   lines.push("LEAD CONTEXT");
   lines.push(`Name: ${lead.name}`);
   if (lead.company) lines.push(`Company: ${lead.company}`);
+  const agentName = ctx?.agentName?.trim();
+  const clientName = ctx?.clientName?.trim();
+  if (agentName && clientName) {
+    lines.push(`Agent persona: ${agentName} from ${clientName}`);
+  } else if (clientName) {
+    lines.push(`Client company: ${clientName}`);
+  }
   if (event) {
     lines.push(
       `Event: ${event.name} (${formatTimestamp(event.startDate)} – ${formatTimestamp(event.endDate)}, timezone ${event.timezone})`

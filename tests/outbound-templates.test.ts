@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFirstNoShowSms,
-  buildVirtualOfferSms
+  buildVirtualOfferSms,
+  type SenderContext
 } from "@/lib/core/outbound-templates";
 import type { Lead } from "@/lib/core/types";
 
@@ -48,6 +49,23 @@ describe("buildFirstNoShowSms", () => {
     const msg = buildFirstNoShowSms({ ...baseLead, name: "Madonna" });
     expect(msg).toMatch(/^Hi Madonna,/);
   });
+
+  it("includes agent persona and client name when provided", () => {
+    const ctx: SenderContext = { agentName: "Sloane Royale", clientName: "Vendelux" };
+    const msg = buildFirstNoShowSms(baseLead, ctx);
+    expect(msg).toContain("This is Sloane Royale from Vendelux.");
+  });
+
+  it("includes only client name when no agent persona", () => {
+    const ctx: SenderContext = { clientName: "Vendelux" };
+    const msg = buildFirstNoShowSms(baseLead, ctx);
+    expect(msg).toContain("This is the team at Vendelux.");
+  });
+
+  it("omits sender intro when no context provided", () => {
+    const msg = buildFirstNoShowSms(baseLead);
+    expect(msg).not.toContain("This is");
+  });
 });
 
 describe("buildVirtualOfferSms", () => {
@@ -55,5 +73,11 @@ describe("buildVirtualOfferSms", () => {
     const msg = buildVirtualOfferSms(baseLead);
     expect(msg).toContain("Alice");
     expect(msg.toLowerCase()).toContain("virtual");
+  });
+
+  it("includes sender intro when context is provided", () => {
+    const ctx: SenderContext = { agentName: "Sloane Royale", clientName: "Vendelux" };
+    const msg = buildVirtualOfferSms(baseLead, ctx);
+    expect(msg).toContain("This is Sloane Royale from Vendelux.");
   });
 });

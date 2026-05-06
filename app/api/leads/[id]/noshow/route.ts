@@ -33,7 +33,13 @@ export async function POST(
     );
   }
 
-  const body = buildFirstNoShowSms(lead);
+  const client = await repo.getClient(ctx.clientId);
+  const senderCtx = {
+    agentName: process.env.AGENT_PERSONA_NAME ?? null,
+    clientName: client?.name ?? null
+  };
+
+  const body = buildFirstNoShowSms(lead, senderCtx);
 
   let sms;
   try {

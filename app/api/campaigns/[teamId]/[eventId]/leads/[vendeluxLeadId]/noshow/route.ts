@@ -73,7 +73,12 @@ export async function POST(
     scheduledMeetingTime: combineMeetingDateTime(snowflakeLead)
   });
 
-  const body = buildFirstNoShowSms(lead);
+  const senderCtx = {
+    agentName: process.env.AGENT_PERSONA_NAME ?? null,
+    clientName: campaign.teamName
+  };
+
+  const body = buildFirstNoShowSms(lead, senderCtx);
 
   let sms;
   try {
