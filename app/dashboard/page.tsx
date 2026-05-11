@@ -102,7 +102,11 @@ async function DashboardBody({
                 <td className="px-4 py-3">
                   <StatusBadge status={lead.status} />
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-700">
+                <td className={`px-4 py-3 text-xs ${
+                  lead.status === "confirmed_reschedule" || lead.status === "confirmed_virtual"
+                    ? "font-medium text-green-600"
+                    : "text-slate-700"
+                }`}>
                   {formatMeetingTime(lead.scheduledMeetingTime, timezone)}
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">

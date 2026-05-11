@@ -1,4 +1,5 @@
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
+import { VdxHeader } from "@/app/_components/VdxHeader";
 import {
   CampaignsTable,
   type CampaignRowData
@@ -31,15 +32,20 @@ export default async function CampaignsPage() {
   }));
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Active campaigns</h1>
-        <p className="text-sm text-slate-500">
-          Sourced live from SILVER.SLOANE_V2.V_VDX_CAMPAIGN_CONFIG
-        </p>
-      </header>
+    <>
+      <VdxHeader />
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <header className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Active Campaigns
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Select a campaign to view meetings booked and manage no-show recovery.
+          </p>
+        </header>
 
-      <CampaignsTable campaigns={rows} />
-    </main>
+        <CampaignsTable campaigns={rows} />
+      </main>
+    </>
   );
 }

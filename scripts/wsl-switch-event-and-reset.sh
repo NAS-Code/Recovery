@@ -55,7 +55,8 @@ const updated = await prisma.lead.update({
   where: { id: alice.id },
   data: {
     status: 'scheduled',
-    scheduledMeetingTime: meetingTime
+    scheduledMeetingTime: meetingTime,
+    fdeOwnerSlackId: 'U0AK6M6CJ7J'
   }
 });
 console.log('Lead reset:', {

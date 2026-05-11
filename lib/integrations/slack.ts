@@ -36,7 +36,7 @@ const reasonLabels: Record<FdeReviewInput["reason"], string> = {
 };
 
 export async function notifyFdeForReview(input: FdeReviewInput): Promise<void> {
-  const channel = input.lead.fdeOwnerSlackId ?? process.env.SLACK_DEFAULT_CHANNEL;
+  const channel = process.env.SLACK_DEFAULT_CHANNEL;
   if (!channel) {
     logger.warn("slack.notify_fde.no_channel", {
       leadId: input.lead.id,
@@ -81,6 +81,13 @@ export async function notifyFdeForReview(input: FdeReviewInput): Promise<void> {
 function buildReviewBlocks(input: FdeReviewInput): KnownBlock[] {
   const { lead, history, reason, reasoning } = input;
   const blocks: KnownBlock[] = [];
+
+  if (lead.fdeOwnerSlackId) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `<@${lead.fdeOwnerSlackId}> — this one needs your attention.` }
+    });
+  }
 
   blocks.push({
     type: "header",

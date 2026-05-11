@@ -151,15 +151,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     return;
   }
 
-  // Fallback: send a generic holding reply so the lead is never ghosted,
-  // then notify the FDE for a proper follow-up.
-  const fallback =
-    "Thanks for your reply! Let me loop in the right person — someone will get back to you shortly.";
-  await sendDraftReply({
-    leadId: lead.id,
-    phone: lead.phone,
-    body: fallback
-  });
+  // No draft_reply — route to a human via Slack silently.
+  // No auto-reply to the lead so the handoff feels natural.
 
   await notifyFdeForReview({
     lead: { ...lead, status: newStatus },

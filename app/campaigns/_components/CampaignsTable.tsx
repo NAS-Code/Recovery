@@ -36,7 +36,7 @@ export function CampaignsTable({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter by team or event…"
-          className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+          className="w-full max-w-md rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
           autoFocus
         />
         <span className="text-xs text-slate-500">
@@ -49,30 +49,33 @@ export function CampaignsTable({
       {filtered.length === 0 ? (
         <p className="text-slate-600">No campaigns match.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-vdx-cream text-left text-[11px] uppercase tracking-wider text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Team</th>
-                <th className="px-4 py-3 font-medium">Event</th>
-                <th className="px-4 py-3 font-medium">Dates</th>
+                <th className="px-5 py-3 font-semibold">Team</th>
+                <th className="px-5 py-3 font-semibold">Event</th>
+                <th className="px-5 py-3 font-semibold">Dates</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {filtered.map((c) => (
-                <tr key={`${c.teamId}_${c.eventId}`}>
-                  <td className="px-4 py-3 font-medium text-slate-900">
+                <tr
+                  key={`${c.teamId}_${c.eventId}`}
+                  className="transition-colors hover:bg-vdx-cream/40"
+                >
+                  <td className="px-5 py-3.5 font-medium text-slate-900">
                     {c.teamName}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-3.5">
                     <Link
                       href={`/campaigns/${encodeURIComponent(c.teamId)}/${encodeURIComponent(c.eventId)}`}
-                      className="text-slate-900 hover:underline"
+                      className="font-medium text-vdx-plum hover:text-vdx-coral hover:underline"
                     >
                       {c.eventName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
+                  <td className="px-5 py-3.5 text-xs text-slate-500">
                     {c.dateRange}
                   </td>
                 </tr>
