@@ -85,7 +85,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
       direction: "inbound",
       text: inbound.text,
       timestamp: inbound.timestamp,
-      claudeClassification: null
+      claudeClassification: null,
+      messageType: "inbound_reply"
     }
   ];
 
@@ -117,7 +118,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
       leadId: lead.id,
       direction: "inbound",
       text: inbound.text,
-      timestamp: inbound.timestamp
+      timestamp: inbound.timestamp,
+      messageType: "inbound_reply"
     });
     return;
   }
@@ -127,7 +129,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     direction: "inbound",
     text: inbound.text,
     timestamp: inbound.timestamp,
-    classification
+    classification,
+    messageType: "inbound_reply"
   });
 
   const newStatus = nextState(lead.status, classification);
@@ -214,6 +217,7 @@ async function sendDraftReply(input: {
   await repo.appendMessage({
     leadId: input.leadId,
     direction: "outbound",
-    text: input.body
+    text: input.body,
+    messageType: "auto_reply"
   });
 }

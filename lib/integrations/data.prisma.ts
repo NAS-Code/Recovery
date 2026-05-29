@@ -13,7 +13,8 @@ import {
   type ConversationMessage,
   type Event,
   type Lead,
-  type LeadStatus
+  type LeadStatus,
+  type MessageType
 } from "@/lib/core/types";
 import type {
   AppendMessageInput,
@@ -67,7 +68,8 @@ function toDomainMessage(row: PrismaConversation): ConversationMessage {
     text: row.text,
     timestamp: row.timestamp,
     claudeClassification:
-      (row.claudeClassification as ClaudeClassification | null) ?? null
+      (row.claudeClassification as ClaudeClassification | null) ?? null,
+    messageType: (row.messageType as MessageType | null) ?? null
   };
 }
 
@@ -104,7 +106,8 @@ export class PrismaLeadRepository implements LeadRepository {
         text: input.text,
         timestamp: input.timestamp ?? new Date(),
         claudeClassification:
-          (input.classification as Prisma.InputJsonValue | undefined) ?? undefined
+          (input.classification as Prisma.InputJsonValue | undefined) ?? undefined,
+        messageType: input.messageType ?? undefined
       }
     });
     return toDomainMessage(row);

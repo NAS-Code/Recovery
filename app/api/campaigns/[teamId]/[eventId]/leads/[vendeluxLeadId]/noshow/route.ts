@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getClientContext } from "@/lib/auth/context";
+import { ADMIN_COOKIE_NAME, validateAdminSession } from "@/lib/auth/admin-auth";
+import { CAMPAIGN_COOKIE_NAME, validateCampaignSession } from "@/lib/auth/campaign-auth";
 import { buildFirstNoShowSms } from "@/lib/core/outbound-templates";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { sendSms } from "@/lib/integrations/clicksend";
@@ -21,13 +22,32 @@ export async function POST(
     params: { teamId: string; eventId: string; vendeluxLeadId: string };
   }
 ) {
-  const ctx = getClientContext();
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   const teamId = decodeURIComponent(params.teamId);
   const eventId = decodeURIComponent(params.eventId);
+
+  // Accept either admin auth OR campaign-scoped auth
+  let authorized = false;
+
+  // Try admin session first
+  const adminToken = _req.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  if (adminToken) {
+    authorized = await validateAdminSession(adminToken);
+  }
+
+  // Try campaign session (scoped to this specific campaign)
+  if (!authorized) {
+    const campaignToken = _req.cookies.get(CAMPAIGN_COOKIE_NAME)?.value;
+    if (campaignToken) {
+      const session = await validateCampaignSession(campaignToken);
+      if (session && session.teamId === teamId && session.eventId === eventId) {
+        authorized = true;
+      }
+    }
+  }
+
+  if (!authorized) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const vendeluxLeadId = decodeURIComponent(params.vendeluxLeadId);
 
   const repo = getLeadRepository();
@@ -113,7 +133,8 @@ export async function POST(
   await repo.appendMessage({
     leadId: lead.id,
     direction: "outbound",
-    text: body
+    text: body,
+    messageType: "initial_outreach"
   });
 
   logger.info("noshow.snowflake.marked", {

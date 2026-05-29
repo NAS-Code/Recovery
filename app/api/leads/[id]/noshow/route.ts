@@ -63,7 +63,8 @@ export async function POST(
   await repo.appendMessage({
     leadId,
     direction: "outbound",
-    text: body
+    text: body,
+    messageType: "initial_outreach"
   });
 
   logger.info("noshow.marked", {

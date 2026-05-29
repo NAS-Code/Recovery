@@ -1,7 +1,7 @@
 import snowflake from "snowflake-sdk";
 import { logger } from "@/lib/util/logger";
 
-const QUERY_TIMEOUT_MS = 30_000;
+const QUERY_TIMEOUT_MS = 90_000; // 90s to allow for Snowflake warehouse wake-up
 
 export class SnowflakeError extends Error {
   constructor(message: string, public cause?: unknown) {

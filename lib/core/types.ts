@@ -25,6 +25,13 @@ export const TERMINAL_STATUSES: LeadStatus[] = [
 
 export type MessageDirection = "inbound" | "outbound";
 
+export type MessageType =
+  | "initial_outreach"
+  | "auto_reply"
+  | "inbound_reply"
+  | "eod_checkin"
+  | "virtual_offer";
+
 export type ClaudeCategory =
   | "reschedule_at_event"
   | "virtual_meeting"
@@ -104,4 +111,5 @@ export interface ConversationMessage {
   text: string;
   timestamp: Date;
   claudeClassification: ClaudeClassification | null;
+  messageType: MessageType | null;
 }

@@ -150,7 +150,8 @@ describe("buildClassifierUserMessage", () => {
       direction: "outbound",
       text: "Hi Alice, sorry we missed you at 3pm. Want another slot?",
       timestamp: new Date("2026-04-29T15:30:00Z"),
-      claudeClassification: null
+      claudeClassification: null,
+      messageType: null
     },
     {
       id: "m2",
@@ -158,7 +159,8 @@ describe("buildClassifierUserMessage", () => {
       direction: "inbound",
       text: "Yeah, 4:30 works.",
       timestamp: new Date("2026-04-29T15:35:00Z"),
-      claudeClassification: null
+      claudeClassification: null,
+      messageType: null
     }
   ];
 

@@ -5,7 +5,8 @@ import type {
   Event,
   Lead,
   LeadStatus,
-  MessageDirection
+  MessageDirection,
+  MessageType
 } from "@/lib/core/types";
 import { PrismaLeadRepository } from "@/lib/integrations/data.prisma";
 
@@ -15,6 +16,7 @@ export interface AppendMessageInput {
   text: string;
   classification?: ClaudeClassification | null;
   timestamp?: Date;
+  messageType?: MessageType | null;
 }
 
 /**
