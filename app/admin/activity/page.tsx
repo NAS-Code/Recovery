@@ -85,7 +85,7 @@ async function getEventFilters(): Promise<Array<{ id: string; name: string; team
 export default async function ActivityPage() {
   const isAdmin = await isAdminAuthenticated();
   if (!isAdmin) {
-    redirect("/campaigns/login?next=/campaigns/activity");
+    redirect("/admin/login?next=/admin/activity");
   }
 
   const [messages, events] = await Promise.all([
@@ -107,11 +107,11 @@ export default async function ActivityPage() {
 
   return (
     <>
-      <VdxHeader />
+      <VdxHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <AutoRefresh intervalMs={10000} />
         <Link
-          href="/campaigns"
+          href="/admin/campaigns"
           className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
         >
           &larr; All campaigns

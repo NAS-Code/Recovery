@@ -33,7 +33,7 @@ function LoginForm() {
 
       const data = await res.json();
       // Hard redirect — more reliable than client-side router after setting cookies
-      window.location.href = next ?? data.redirectUrl ?? "/campaigns";
+      window.location.href = next ?? data.redirectUrl ?? "/admin/campaigns";
     } catch {
       setError("Something went wrong. Please try again.");
       setPending(false);
@@ -57,7 +57,7 @@ function LoginForm() {
             Vendelux Concierge
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Sign in to view your campaign dashboard
+            Admin sign-in
           </p>
         </div>
 
@@ -123,7 +123,7 @@ function LoginForm() {
   );
 }
 
-export default function CampaignLoginPage() {
+export default function AdminLoginPage() {
   return (
     <Suspense>
       <LoginForm />

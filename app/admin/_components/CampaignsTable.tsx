@@ -87,7 +87,7 @@ export function CampaignsTable({
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {filtered.map((c) => {
-                  const dashboardUrl = `/campaigns/${encodeURIComponent(c.teamId)}/${encodeURIComponent(c.eventId)}`;
+                  const dashboardUrl = `/customer/${encodeURIComponent(c.teamId)}/${encodeURIComponent(c.eventId)}`;
 
                   return (
                     <tr
@@ -152,7 +152,7 @@ export function CampaignsTable({
           {/* ---- Mobile cards (hidden on desktop) ---- */}
           <div className="md:hidden space-y-3">
             {filtered.map((c) => {
-              const dashboardUrl = `/campaigns/${encodeURIComponent(c.teamId)}/${encodeURIComponent(c.eventId)}`;
+              const dashboardUrl = `/customer/${encodeURIComponent(c.teamId)}/${encodeURIComponent(c.eventId)}`;
 
               return (
                 <div

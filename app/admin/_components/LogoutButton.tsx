@@ -10,8 +10,7 @@ export function LogoutButton() {
   async function onClick() {
     setPending(true);
     await fetch("/api/auth/campaign-logout", { method: "POST" });
-    router.push("/campaigns/login");
-    router.refresh();
+    window.location.href = "/admin/login";
   }
 
   return (

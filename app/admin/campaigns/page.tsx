@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
-import { getCampaignContext } from "@/lib/auth/campaign-context";
 import { ensureAllCampaignCredentials, type CampaignCredentialInfo } from "@/lib/auth/campaign-credentials";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { VdxHeader } from "@/app/_components/VdxHeader";
-import { LogoutButton } from "./_components/LogoutButton";
+import { LogoutButton } from "../_components/LogoutButton";
 import {
   CampaignsTable,
   type CampaignRowData
-} from "./_components/CampaignsTable";
+} from "../_components/CampaignsTable";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,18 +26,10 @@ function formatDateRange(start: Date, end: Date): string {
 }
 
 export default async function CampaignsPage() {
-  // If a campaign client is logged in, send them to their specific dashboard
-  const campaignCtx = await getCampaignContext();
-  if (campaignCtx) {
-    redirect(
-      `/campaigns/${encodeURIComponent(campaignCtx.teamId)}/${encodeURIComponent(campaignCtx.eventId)}`
-    );
-  }
-
   // Campaigns list is admin-only
   const admin = await isAdminAuthenticated();
   if (!admin) {
-    redirect("/campaigns/login?next=/campaigns");
+    redirect("/admin/login?next=/admin/campaigns");
   }
 
   const repo = getCampaignRepository();
@@ -83,7 +74,7 @@ export default async function CampaignsPage() {
               </p>
             </div>
             <Link
-              href="/campaigns/activity"
+              href="/admin/activity"
               className="shrink-0 rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
             >
               SMS Activity

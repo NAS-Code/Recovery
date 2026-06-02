@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({
       ok: true,
       role: "admin",
-      redirectUrl: "/campaigns"
+      redirectUrl: "/admin/campaigns"
     });
 
     res.cookies.set(ADMIN_COOKIE_NAME, adminToken, {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   // 2) Try campaign (client) credentials
   const session = await verifyCampaignCredential(username, password);
   if (session) {
-    const redirectUrl = `/campaigns/${encodeURIComponent(session.teamId)}/${encodeURIComponent(session.eventId)}`;
+    const redirectUrl = `/customer/${encodeURIComponent(session.teamId)}/${encodeURIComponent(session.eventId)}`;
 
     const res = NextResponse.json({
       ok: true,

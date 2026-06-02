@@ -64,12 +64,12 @@ export default async function CampaignDashboardPage({
     const campaignCtx = await getCampaignContext();
     if (!campaignCtx) {
       redirect(
-        `/campaigns/login?next=/campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}`
+        `/customer/login?next=/customer/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}`
       );
     }
     if (campaignCtx.teamId !== teamId || campaignCtx.eventId !== eventId) {
       redirect(
-        `/campaigns/${encodeURIComponent(campaignCtx.teamId)}/${encodeURIComponent(campaignCtx.eventId)}`
+        `/customer/${encodeURIComponent(campaignCtx.teamId)}/${encodeURIComponent(campaignCtx.eventId)}`
       );
     }
   }
@@ -92,7 +92,7 @@ export default async function CampaignDashboardPage({
         <AutoRefresh intervalMs={5000} />
         {isAdmin && (
           <Link
-            href="/campaigns"
+            href="/admin/campaigns"
             className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
           >
             &larr; All campaigns
