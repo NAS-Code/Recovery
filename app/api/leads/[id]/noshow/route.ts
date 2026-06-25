@@ -33,6 +33,24 @@ export async function POST(
     );
   }
 
+  // Guard: prevent duplicate outreach to the same phone number across campaigns.
+  const activeForPhone = await repo.getActiveLeadByPhone(lead.phone);
+  if (activeForPhone && activeForPhone.id !== lead.id) {
+    logger.warn("noshow.duplicate_phone_blocked", {
+      leadId,
+      phone: lead.phone,
+      blockedByLeadId: activeForPhone.id,
+      blockedByStatus: activeForPhone.status
+    });
+    return NextResponse.json(
+      {
+        error: "duplicate_phone",
+        detail: "This contact already has an active outreach from another campaign"
+      },
+      { status: 409 }
+    );
+  }
+
   const [client, event] = await Promise.all([
     repo.getClient(ctx.clientId),
     repo.getCurrentEventForClient(ctx.clientId)

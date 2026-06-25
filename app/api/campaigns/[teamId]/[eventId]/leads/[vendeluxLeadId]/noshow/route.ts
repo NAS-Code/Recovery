@@ -8,7 +8,8 @@ import { getLeadRepository } from "@/lib/integrations/data";
 import {
   combineMeetingDateTime,
   getLeadById,
-  getSubCampaignContext
+  getSubCampaignContext,
+  hasCrossTeamConflict
 } from "@/lib/integrations/leads.snowflake";
 import { logger } from "@/lib/util/logger";
 
@@ -80,6 +81,15 @@ export async function POST(
     );
   }
 
+  // Duplicate-phone guard: another campaign already has an active outreach to
+  // this number. Silently suppress — cache the lead, mark no_show for the
+  // client's dashboard, but do NOT send SMS. A cron will auto-cancel after 1h.
+  const [activeForPhone, crossTeamConflict] = await Promise.all([
+    repo.getActiveLeadByPhone(snowflakeLead.phone),
+    hasCrossTeamConflict(snowflakeLead.phone, teamId)
+  ]);
+  const isSuppressed = !!activeForPhone || crossTeamConflict;
+
   // Resolve agent persona: sub-campaign AGENT_PERSONAS → ONSITE_CONTACT_NAME → lead OCM → env var
   const agentPersonaName =
     subCampaignCtx?.agentPersonaName
@@ -104,6 +114,31 @@ export async function POST(
     scheduledMeetingTime: combineMeetingDateTime(snowflakeLead)
   });
 
+  // Mark as no_show either way so the client's dashboard looks normal
+  await repo.updateLeadStatus(lead.id, "no_show");
+
+  if (isSuppressed) {
+    // Flag for auto-cancellation — no SMS, no conversation record
+    await repo.suppressLead(lead.id);
+
+    logger.info("noshow.suppressed", {
+      leadId: lead.id,
+      vendeluxLeadId,
+      teamId: campaign.teamId,
+      eventId: campaign.eventId,
+      reason: activeForPhone ? "active_lead" : "cross_team",
+      blockedByLeadId: activeForPhone?.id ?? null
+    });
+
+    return NextResponse.json({
+      leadId: lead.id,
+      vendeluxLeadId,
+      status: "no_show",
+      sms: { messageId: "suppressed", status: "suppressed" }
+    });
+  }
+
+  // Normal path — send the SMS
   const senderCtx = {
     agentName: agentPersonaName,
     clientName: campaign.teamName
@@ -129,7 +164,6 @@ export async function POST(
     );
   }
 
-  await repo.updateLeadStatus(lead.id, "no_show");
   await repo.appendMessage({
     leadId: lead.id,
     direction: "outbound",

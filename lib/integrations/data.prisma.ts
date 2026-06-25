@@ -38,6 +38,7 @@ function toDomainLead(row: PrismaLead): Lead {
     fdeOwnerSlackId: row.fdeOwnerSlackId,
     status: row.status as LeadStatus,
     scheduledMeetingTime: row.scheduledMeetingTime,
+    suppressedAt: row.suppressedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -134,6 +135,7 @@ export class PrismaLeadRepository implements LeadRepository {
     const rows = await prisma.lead.findMany({
       where: {
         status: { in: ACTIVE_NO_SHOW_STATUSES },
+        suppressedAt: null, // exclude silently suppressed leads
         ...(eventId ? { eventId } : {})
       },
       orderBy: { updatedAt: "desc" }
@@ -288,6 +290,24 @@ export class PrismaLeadRepository implements LeadRepository {
       orderBy: [{ updatedAt: "desc" }]
     });
     return rows.map(toDomainLead);
+  }
+
+  async suppressLead(leadId: string): Promise<void> {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { suppressedAt: new Date() }
+    });
+  }
+
+  async cancelExpiredSuppressions(olderThan: Date): Promise<number> {
+    const result = await prisma.lead.updateMany({
+      where: {
+        suppressedAt: { not: null, lte: olderThan },
+        status: { not: "canceled" }
+      },
+      data: { status: "canceled" }
+    });
+    return result.count;
   }
 
   async getMidConversationLeads(now: Date): Promise<Lead[]> {

@@ -18,6 +18,7 @@ enum LeadStatus {
   context_question
   not_interested
   uncategorized
+  canceled
 }
 
 enum MessageDirection {
@@ -74,6 +75,7 @@ model Lead {
   fdeOwnerSlackId      String?        @map("fde_owner_slack_id")
   status               LeadStatus     @default(scheduled)
   scheduledMeetingTime DateTime?      @map("scheduled_meeting_time")
+  suppressedAt         DateTime?      @map("suppressed_at")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt      @map("updated_at")
   conversations        Conversation[]

@@ -29,6 +29,40 @@ function getFromNumber(): string {
   return from;
 }
 
+/** Reduce a phone number to comparable digits (last 10), ignoring +, spaces, punctuation. */
+function normalizeNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+/**
+ * The ClickSend number(s) this concierge instance owns. Two numbers are shared
+ * across multiple workflows, so the inbound webhook must ignore any message
+ * delivered to a number concierge does not operate on.
+ *
+ * Sourced from CONCIERGE_INBOUND_NUMBERS (comma-separated) if set, otherwise
+ * falls back to the single CLICKSEND_FROM_NUMBER we send from.
+ */
+function getConciergeNumbers(): string[] {
+  const list = process.env.CONCIERGE_INBOUND_NUMBERS;
+  const raw = list
+    ? list.split(",")
+    : [process.env.CLICKSEND_FROM_NUMBER ?? ""];
+  return raw.map((n) => normalizeNumber(n.trim())).filter((n) => n.length > 0);
+}
+
+/**
+ * True when an inbound message was delivered to a concierge-owned number.
+ * Returns true (fail-open) when the destination is unknown or no allowlist is
+ * configured — the active-lead lookup remains the backstop in those cases.
+ */
+export function isConciergeInboundNumber(to: string | null): boolean {
+  const allow = getConciergeNumbers();
+  if (allow.length === 0) return true; // nothing configured → don't block
+  if (!to) return true; // payload omitted the destination → can't filter here
+  return allow.includes(normalizeNumber(to));
+}
+
 export interface SendSmsInput {
   to: string;
   body: string;

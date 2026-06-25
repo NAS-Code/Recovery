@@ -78,6 +78,114 @@ export async function notifyFdeForReview(input: FdeReviewInput): Promise<void> {
   }
 }
 
+// Cached workspace directory: normalized name → Slack member ID. Built once per
+// process from users.list (names rarely change); refetched only on a miss.
+// ponytail: in-memory cache, no TTL. Add a TTL if staff churn outpaces deploys.
+let directory: Map<string, string> | null = null;
+
+async function loadDirectory(force = false): Promise<Map<string, string>> {
+  if (directory && !force) return directory;
+  const map = new Map<string, string>();
+  let cursor: string | undefined;
+  do {
+    const res = await getClient().users.list({ limit: 200, cursor });
+    for (const m of res.members ?? []) {
+      if (!m.id || m.deleted || m.is_bot) continue;
+      // Index every name variant so a Snowflake "Heidi Kim" or a display name "Jared" both hit.
+      for (const n of [m.profile?.real_name, m.profile?.display_name, m.real_name, m.name]) {
+        if (n?.trim()) map.set(n.trim().toLowerCase(), m.id);
+      }
+    }
+    cursor = res.response_metadata?.next_cursor || undefined;
+  } while (cursor);
+  directory = map;
+  return map;
+}
+
+/** Resolve a person's name to a Slack `<@id>` mention, or the plain name if not found. */
+async function resolveMention(name: string | null | undefined): Promise<string> {
+  if (!name?.trim()) return "";
+  const key = name.trim().toLowerCase();
+  try {
+    let dir = await loadDirectory();
+    let id = dir.get(key);
+    if (!id) {
+      dir = await loadDirectory(true); // miss → refetch once in case they were just added
+      id = dir.get(key);
+    }
+    if (id) return `<@${id}>`;
+  } catch {
+    // missing users:read scope or API error → fall back to plain name
+  }
+  return name.trim();
+}
+
+/** Format like "6/18 11:45am PST" in the given IANA timezone. */
+function fmtMeeting(d: Date | null, timezone?: string): string {
+  if (!d) return "TBD";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short"
+  }).formatToParts(d);
+  const p = (t: string) => parts.find((x) => x.type === t)?.value ?? "";
+  const ampm = p("dayPeriod").toLowerCase().replace(/\s/g, "");
+  return `${p("month")}/${p("day")} ${p("hour")}:${p("minute")}${ampm} ${p("timeZoneName")}`;
+}
+
+/** Ping the team when a lead confirms a rebooking (reschedule or virtual). */
+export async function notifyRebooked(input: {
+  lead: Lead;
+  kind: "reschedule" | "virtual";
+  previousTime: Date | null;
+  meetingTime: Date | null;
+  timezone?: string;
+  ocm?: string | null;
+  csm?: string | null;
+}): Promise<void> {
+  // ponytail: env override defaults to the given channel; swap for test/prod without redeploy
+  const channel = process.env.SLACK_REBOOKED_CHANNEL ?? "C0AV49FKSCF";
+  if (!process.env.SLACK_BOT_TOKEN) {
+    logger.warn("slack.notify_rebooked.no_token", { leadId: input.lead.id });
+    return;
+  }
+
+  const newTime = fmtMeeting(input.meetingTime, input.timezone);
+  const when = input.previousTime
+    ? `${fmtMeeting(input.previousTime, input.timezone)} :point_right: ${newTime}`
+    : newTime;
+  const label = input.kind === "virtual" ? "virtual meeting" : "event";
+
+  // Tag the OCM and CSM (dedup if they're the same person).
+  const names = [input.ocm, input.csm].filter(Boolean) as string[];
+  const resolved = (
+    await Promise.all([...new Set(names)].map(resolveMention))
+  ).filter(Boolean);
+  const cc = resolved.length ? `\n${resolved.join(" ")}` : "";
+
+  const text = `✅ *${input.lead.name}* (${input.lead.company ?? "—"}) rebooked ${label} - ${when}${cc}`;
+
+  try {
+    await getClient().chat.postMessage({
+      channel,
+      text,
+      unfurl_links: false,
+      unfurl_media: false
+    });
+    logger.info("slack.notify_rebooked.sent", { leadId: input.lead.id, channel });
+  } catch (err) {
+    logger.error("slack.notify_rebooked.failed", {
+      leadId: input.lead.id,
+      channel,
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
+}
+
 function buildReviewBlocks(input: FdeReviewInput): KnownBlock[] {
   const { lead, history, reason, reasoning } = input;
   const blocks: KnownBlock[] = [];

@@ -61,6 +61,10 @@ export interface LeadRepository {
   getLeadByVendeluxId(vendeluxLeadId: string): Promise<Lead | null>;
   getLeadStatesByVendeluxIds(ids: string[]): Promise<Map<string, Lead>>;
   cacheSnowflakeLead(input: CacheSnowflakeLeadInput): Promise<Lead>;
+  /** Mark a lead as suppressed (duplicate phone, no SMS sent). */
+  suppressLead(leadId: string): Promise<void>;
+  /** Cancel all suppressed leads older than the given threshold. Returns count. */
+  cancelExpiredSuppressions(olderThan: Date): Promise<number>;
 }
 
 let repository: LeadRepository | null = null;

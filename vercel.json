@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/end-of-event-virtual",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/cancel-suppressed",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -4,13 +4,15 @@ import { nextState } from "@/lib/core/conversation-state";
 import type { ConversationMessage, LeadStatus } from "@/lib/core/types";
 import { classifyConversation } from "@/lib/integrations/claude";
 import { tryParseIsoDate } from "@/lib/util/format";
+import { getLeadById } from "@/lib/integrations/leads.snowflake";
 import {
+  isConciergeInboundNumber,
   parseInboundWebhook,
   sendSms,
   type InboundSms
 } from "@/lib/integrations/clicksend";
 import { getLeadRepository } from "@/lib/integrations/data";
-import { notifyFdeForReview } from "@/lib/integrations/slack";
+import { notifyFdeForReview, notifyRebooked } from "@/lib/integrations/slack";
 import { logger } from "@/lib/util/logger";
 
 export const runtime = "nodejs";
@@ -35,8 +37,20 @@ export async function POST(req: NextRequest) {
 
   logger.info("clicksend.webhook.received", {
     from: inbound.from,
+    to: inbound.to,
     messageId: inbound.messageId
   });
+
+  // Two ClickSend numbers are shared across workflows. Only handle messages
+  // delivered to a concierge-owned number; ignore everything else so we never
+  // reply to (or escalate) traffic that belongs to another workflow.
+  if (!isConciergeInboundNumber(inbound.to)) {
+    logger.info("clicksend.webhook.ignored_non_concierge_number", {
+      to: inbound.to,
+      messageId: inbound.messageId
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   waitUntil(processInbound(inbound));
 
@@ -144,6 +158,26 @@ async function processInbound(inbound: InboundSms): Promise<void> {
   }
 
   await maybeUpdateMeetingTime(repo, lead.id, newStatus, classification.confirmed_time);
+
+  // Notify the team only on the transition *into* a confirmed state, not on
+  // every later message while already confirmed.
+  if (newStatus !== lead.status && RESCHEDULE_STATUSES.includes(newStatus)) {
+    // Pull OCM/CSM names from Snowflake so we can tag them. Best-effort.
+    const sf = lead.vendeluxLeadId
+      ? await getLeadById(lead.vendeluxLeadId).catch(() => null)
+      : null;
+    await notifyRebooked({
+      lead: { ...lead, status: newStatus },
+      kind: newStatus === "confirmed_virtual" ? "virtual" : "reschedule",
+      previousTime: lead.scheduledMeetingTime,
+      meetingTime: classification.confirmed_time
+        ? tryParseIsoDate(classification.confirmed_time)
+        : null,
+      timezone: event?.timezone,
+      ocm: sf?.ocm,
+      csm: sf?.csm
+    });
+  }
 
   if (classification.draft_reply) {
     await sendDraftReply({

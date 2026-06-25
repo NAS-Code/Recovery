@@ -20,6 +20,8 @@ export interface CampaignLead {
   phone: string | null;
   /** Onsite Contact Manager — the Vendelux rep who booked the meeting with this lead. */
   ocm: string | null;
+  /** Customer Success Manager — the Vendelux rep who owns the client relationship. */
+  csm: string | null;
   vendeluxStatus: string | null;
   meetingDate: Date | null;
   meetingTimeRaw: string | null;
@@ -37,9 +39,10 @@ interface LeadRow {
   COMPANY: string | null;
   NUMBER_DIALED: string | null;
   OCM: string | null;
+  CSM: string | null;
   STATUS: string | null;
-  DATE_MEETING_BOOKED_FOR_1: Date | null;
-  TIME_MEETING_BOOKED_FOR_1: string | null;
+  DATE_MEETING_BOOKED_FOR: Date | null;
+  TIME_MEETING_BOOKED_FOR: string | null;
   MEETING_TIMEZONE: string | null;
   EVENT_START_DATE: Date | null;
   EVENT_END_DATE: Date | null;
@@ -55,11 +58,12 @@ function toDomain(row: LeadRow): CampaignLead {
     company: row.COMPANY,
     phone: row.NUMBER_DIALED,
     ocm: row.OCM ?? null,
+    csm: row.CSM ?? null,
     vendeluxStatus: row.STATUS,
-    meetingDate: row.DATE_MEETING_BOOKED_FOR_1
-      ? new Date(row.DATE_MEETING_BOOKED_FOR_1)
+    meetingDate: row.DATE_MEETING_BOOKED_FOR
+      ? new Date(row.DATE_MEETING_BOOKED_FOR)
       : null,
-    meetingTimeRaw: row.TIME_MEETING_BOOKED_FOR_1,
+    meetingTimeRaw: row.TIME_MEETING_BOOKED_FOR,
     meetingTimezone: row.MEETING_TIMEZONE,
     eventStartDate: row.EVENT_START_DATE ? new Date(row.EVENT_START_DATE) : null,
     eventEndDate: row.EVENT_END_DATE ? new Date(row.EVENT_END_DATE) : null
@@ -75,9 +79,10 @@ const LEAD_COLUMNS = `
   COMPANY,
   NUMBER_DIALED,
   OCM,
+  CSM,
   STATUS,
-  DATE_MEETING_BOOKED_FOR_1,
-  TIME_MEETING_BOOKED_FOR_1,
+  DATE_MEETING_BOOKED_FOR,
+  TIME_MEETING_BOOKED_FOR,
   MEETING_TIMEZONE,
   EVENT_START_DATE,
   EVENT_END_DATE
@@ -93,10 +98,29 @@ export async function listLeadsForCampaign(
      WHERE TEAM_ID = ?
        AND EVENT_ID = ?
        AND STATUS = 'Meeting Booked'
-     ORDER BY DATE_MEETING_BOOKED_FOR_1 ASC NULLS LAST, LEAD_NAME ASC`,
+     ORDER BY DATE_MEETING_BOOKED_FOR ASC NULLS LAST, LEAD_NAME ASC`,
     [teamId, eventId]
   );
   return rows.map(toDomain);
+}
+
+/**
+ * Data-team rule: if this phone number is a positive lead under a *different*
+ * team, don't text them — the other team owns the relationship. Source of truth
+ * is SILVER.TEXTING.POSITIVE_LEAD_DETAILS (full population, not just leads we've
+ * already cached in Postgres).
+ */
+export async function hasCrossTeamConflict(
+  phone: string,
+  teamId: string
+): Promise<boolean> {
+  const rows = await query<{ N: number }>(
+    `SELECT COUNT(*) AS "N"
+     FROM SILVER.TEXTING.POSITIVE_LEAD_DETAILS
+     WHERE TO_NUMBER = ? AND TEAM_ID != ?`,
+    [phone, teamId]
+  );
+  return (rows[0]?.N ?? 0) > 0;
 }
 
 export async function getLeadById(

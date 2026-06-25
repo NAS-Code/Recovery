@@ -19,6 +19,7 @@ const baseLead: Lead = {
   vendeluxLeadId: null,
   status: "scheduled",
   scheduledMeetingTime: null,
+  suppressedAt: null,
   createdAt: new Date(),
   updatedAt: new Date()
 };
