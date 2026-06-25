@@ -168,7 +168,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
       : null;
     await notifyRebooked({
       lead: { ...lead, status: newStatus },
-      kind: newStatus === "confirmed_virtual" ? "virtual" : "reschedule",
+      clientName: client?.name ?? null,
+      eventName: event?.name ?? null,
       previousTime: lead.scheduledMeetingTime,
       meetingTime: classification.confirmed_time
         ? tryParseIsoDate(classification.confirmed_time)

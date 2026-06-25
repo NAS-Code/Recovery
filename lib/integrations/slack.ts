@@ -140,7 +140,8 @@ function fmtMeeting(d: Date | null, timezone?: string): string {
 /** Ping the team when a lead confirms a rebooking (reschedule or virtual). */
 export async function notifyRebooked(input: {
   lead: Lead;
-  kind: "reschedule" | "virtual";
+  clientName: string | null;
+  eventName: string | null;
   previousTime: Date | null;
   meetingTime: Date | null;
   timezone?: string;
@@ -158,7 +159,6 @@ export async function notifyRebooked(input: {
   const when = input.previousTime
     ? `${fmtMeeting(input.previousTime, input.timezone)} :point_right: ${newTime}`
     : newTime;
-  const label = input.kind === "virtual" ? "virtual meeting" : "event";
 
   // Tag the OCM and CSM (dedup if they're the same person).
   const names = [input.ocm, input.csm].filter(Boolean) as string[];
@@ -167,7 +167,8 @@ export async function notifyRebooked(input: {
   ).filter(Boolean);
   const cc = resolved.length ? `\n${resolved.join(" ")}` : "";
 
-  const text = `✅ *${input.lead.name}* (${input.lead.company ?? "—"}) rebooked ${label} - ${when}${cc}`;
+  const header = `${input.lead.name} | ${input.clientName ?? "—"} | ${input.eventName ?? "—"}`;
+  const text = `:repeat: ${header} - Rebooked Meeting - ${when}${cc}`;
 
   try {
     await getClient().chat.postMessage({
