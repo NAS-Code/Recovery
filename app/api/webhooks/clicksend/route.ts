@@ -1,10 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { nextState } from "@/lib/core/conversation-state";
-import type { ConversationMessage, LeadStatus } from "@/lib/core/types";
+import type { ConversationMessage, Lead, LeadStatus } from "@/lib/core/types";
+import { hasConflict } from "@/lib/core/availability";
+import {
+  buildRescheduleConflictSms,
+  buildRescheduleHoldingSms
+} from "@/lib/core/outbound-templates";
 import { classifyConversation } from "@/lib/integrations/claude";
 import { tryParseIsoDate } from "@/lib/util/format";
 import { getLeadById } from "@/lib/integrations/leads.snowflake";
+import { getCampaignMeetingTimes } from "@/lib/integrations/meetings";
 import {
   isConciergeInboundNumber,
   parseInboundWebhook,
@@ -147,6 +153,20 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     messageType: "inbound_reply"
   });
 
+  // Reschedule confirmations don't auto-confirm. In client-calendar mode we can't
+  // see meetings booked outside Vendelux, so check the times we DO know for a
+  // clash, then hold for the client to approve before telling the lead anything.
+  const proposedTime =
+    classification.category === "reschedule_at_event" &&
+    classification.is_confirmation &&
+    classification.confirmed_time
+      ? tryParseIsoDate(classification.confirmed_time)
+      : null;
+  if (proposedTime) {
+    await handleRescheduleProposal(lead, proposedTime);
+    return;
+  }
+
   const newStatus = nextState(lead.status, classification);
   if (newStatus !== lead.status) {
     await repo.updateLeadStatus(lead.id, newStatus);
@@ -230,6 +250,54 @@ async function maybeUpdateMeetingTime(
   logger.info("clicksend.webhook.meeting_time_updated", {
     leadId,
     newTime: parsed.toISOString()
+  });
+}
+
+/**
+ * A reschedule time the lead proposed. We can't see the client's full calendar,
+ * so: reject times that clash with meetings we DO know, otherwise hold the lead
+ * and surface the time for client approval. Never confirms to the lead here.
+ */
+async function handleRescheduleProposal(
+  lead: Lead,
+  proposedTime: Date
+): Promise<void> {
+  const repo = getLeadRepository();
+
+  // lead.clientId is the Snowflake teamId and lead.eventId the eventId (set by cacheSnowflakeLead).
+  const known = lead.vendeluxLeadId
+    ? await getCampaignMeetingTimes(
+        lead.clientId,
+        lead.eventId,
+        lead.vendeluxLeadId
+      ).catch(() => [] as Date[])
+    : [];
+
+  if (hasConflict(known, proposedTime)) {
+    logger.info("clicksend.webhook.reschedule_conflict", {
+      leadId: lead.id,
+      proposed: proposedTime.toISOString()
+    });
+    if (lead.status !== "in_reschedule_convo") {
+      await repo.updateLeadStatus(lead.id, "in_reschedule_convo");
+    }
+    await sendDraftReply({
+      leadId: lead.id,
+      phone: lead.phone,
+      body: buildRescheduleConflictSms(lead)
+    });
+    return;
+  }
+
+  await repo.setProposedMeetingTime(lead.id, proposedTime); // → pending_client_approval
+  logger.info("clicksend.webhook.reschedule_pending_approval", {
+    leadId: lead.id,
+    proposed: proposedTime.toISOString()
+  });
+  await sendDraftReply({
+    leadId: lead.id,
+    phone: lead.phone,
+    body: buildRescheduleHoldingSms(lead)
   });
 }
 

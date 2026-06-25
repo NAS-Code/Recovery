@@ -8,14 +8,16 @@ export type LeadStatus =
   | "context_question"
   | "not_interested"
   | "uncategorized"
-  | "canceled";
+  | "canceled"
+  | "pending_client_approval";
 
 export const ACTIVE_NO_SHOW_STATUSES: LeadStatus[] = [
   "no_show",
   "in_reschedule_convo",
   "in_virtual_convo",
   "context_question",
-  "uncategorized"
+  "uncategorized",
+  "pending_client_approval"
 ];
 
 export const TERMINAL_STATUSES: LeadStatus[] = [
@@ -102,6 +104,8 @@ export interface Lead {
   fdeOwnerSlackId: string | null;
   status: LeadStatus;
   scheduledMeetingTime: Date | null;
+  /** A reschedule time the lead proposed, awaiting client approval (client-calendar mode). */
+  proposedMeetingTime: Date | null;
   /** Non-null when this lead was silently suppressed (duplicate phone across campaigns). */
   suppressedAt: Date | null;
   createdAt: Date;

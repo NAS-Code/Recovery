@@ -38,6 +38,7 @@ function toDomainLead(row: PrismaLead): Lead {
     fdeOwnerSlackId: row.fdeOwnerSlackId,
     status: row.status as LeadStatus,
     scheduledMeetingTime: row.scheduledMeetingTime,
+    proposedMeetingTime: row.proposedMeetingTime,
     suppressedAt: row.suppressedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
@@ -296,6 +297,35 @@ export class PrismaLeadRepository implements LeadRepository {
     await prisma.lead.update({
       where: { id: leadId },
       data: { suppressedAt: new Date() }
+    });
+  }
+
+  async setProposedMeetingTime(leadId: string, time: Date): Promise<void> {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { proposedMeetingTime: time, status: "pending_client_approval" }
+    });
+  }
+
+  async approveProposedTime(leadId: string): Promise<void> {
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { proposedMeetingTime: true }
+    });
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        scheduledMeetingTime: lead?.proposedMeetingTime ?? undefined,
+        proposedMeetingTime: null,
+        status: "confirmed_reschedule"
+      }
+    });
+  }
+
+  async rejectProposedTime(leadId: string): Promise<void> {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { proposedMeetingTime: null, status: "in_reschedule_convo" }
     });
   }
 

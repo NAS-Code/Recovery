@@ -14,6 +14,7 @@ import {
 import { formatMeetingTime } from "@/lib/util/format";
 import { StatusBadge } from "@/app/dashboard/_components/StatusBadge";
 import { MarkNoShowButton } from "../../_components/MarkNoShowButton";
+import { RescheduleApprovalButton } from "../../_components/RescheduleApprovalButton";
 import { LogoutButton } from "../../_components/LogoutButton";
 
 export const dynamic = "force-dynamic";
@@ -179,7 +180,18 @@ export default async function CampaignDashboardPage({
                               : "—"}
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          {!concierge && lead.phone ? (
+                          {concierge?.status === "pending_client_approval" &&
+                          concierge.proposedMeetingTime ? (
+                            <RescheduleApprovalButton
+                              teamId={teamId}
+                              eventId={eventId}
+                              vendeluxLeadId={lead.leadId}
+                              proposedLabel={formatMeetingTime(
+                                concierge.proposedMeetingTime,
+                                meetingTimezone
+                              )}
+                            />
+                          ) : !concierge && lead.phone ? (
                             <MarkNoShowButton
                               teamId={teamId}
                               eventId={eventId}
@@ -252,7 +264,20 @@ export default async function CampaignDashboardPage({
                     </div>
 
                     {/* Action button */}
-                    {!concierge && lead.phone ? (
+                    {concierge?.status === "pending_client_approval" &&
+                    concierge.proposedMeetingTime ? (
+                      <div className="mt-3">
+                        <RescheduleApprovalButton
+                          teamId={teamId}
+                          eventId={eventId}
+                          vendeluxLeadId={lead.leadId}
+                          proposedLabel={formatMeetingTime(
+                            concierge.proposedMeetingTime,
+                            meetingTimezone
+                          )}
+                        />
+                      </div>
+                    ) : !concierge && lead.phone ? (
                       <div className="mt-3">
                         <MarkNoShowButton
                           teamId={teamId}

@@ -139,6 +139,7 @@ describe("buildClassifierUserMessage", () => {
     vendeluxLeadId: null,
     status: "no_show",
     scheduledMeetingTime: new Date("2026-04-29T15:00:00Z"),
+    proposedMeetingTime: null,
     suppressedAt: null,
     createdAt: new Date("2026-04-29T12:00:00Z"),
     updatedAt: new Date("2026-04-29T15:30:00Z")

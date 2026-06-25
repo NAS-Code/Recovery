@@ -63,6 +63,12 @@ export interface LeadRepository {
   cacheSnowflakeLead(input: CacheSnowflakeLeadInput): Promise<Lead>;
   /** Mark a lead as suppressed (duplicate phone, no SMS sent). */
   suppressLead(leadId: string): Promise<void>;
+  /** Store a lead-proposed reschedule time and move to pending_client_approval. */
+  setProposedMeetingTime(leadId: string, time: Date): Promise<void>;
+  /** Client approved: proposed time → scheduled, clear proposed, confirm reschedule. */
+  approveProposedTime(leadId: string): Promise<void>;
+  /** Client rejected: clear proposed time, reopen the reschedule conversation. */
+  rejectProposedTime(leadId: string): Promise<void>;
   /** Cancel all suppressed leads older than the given threshold. Returns count. */
   cancelExpiredSuppressions(olderThan: Date): Promise<number>;
 }
