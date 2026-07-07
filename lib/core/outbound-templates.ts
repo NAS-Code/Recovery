@@ -63,14 +63,14 @@ export function buildNoShowEmail(lead: Lead, ctx?: SenderContext): EmailContent 
   const intro = escapeHtml(senderIntro(ctx));
   const company = ctx?.clientName?.trim();
   const subject = company
-    ? `Sorry we missed you — ${company}`
-    : "Sorry we missed you";
+    ? `We missed you today - ${company}`
+    : "We missed you today";
 
   const cta = lead.nativeSchedulingLink
-    ? `Happy to find another slot — <a href="${escapeHtml(lead.nativeSchedulingLink)}">grab a time that works for you</a>.`
-    : `Happy to find another time — just reply and let me know what works and I'll get it on the books.`;
+    ? `We'd love to find another slot — <a href="${escapeHtml(lead.nativeSchedulingLink)}">grab a time that works for you</a>.`
+    : `We'd love to find another slot — just reply and let me know what works and I'll get it on the books.`;
 
-  const html = `<p>Hi ${first},</p><p>${intro}Sorry we missed you for our meeting earlier today. ${cta}</p>`;
+  const html = `<p>Hi ${first},</p><p>${intro}It looks like we missed you for our meeting earlier today. ${cta}</p>`;
   return { subject, html };
 }
 
