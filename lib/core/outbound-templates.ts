@@ -57,8 +57,16 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-/** One-off no-show recovery email (sent alongside the first SMS). */
-export function buildNoShowEmail(lead: Lead, ctx?: SenderContext): EmailContent {
+/**
+ * One-off no-show recovery email. Only sent when we have a rebooking link to
+ * give the lead (the caller gates on this), so the CTA always links out —
+ * the email is a one-way nudge, not a reply channel.
+ */
+export function buildNoShowEmail(
+  lead: Lead,
+  schedulingLink: string,
+  ctx?: SenderContext
+): EmailContent {
   const first = escapeHtml(firstName(lead.name));
   const intro = escapeHtml(senderIntro(ctx));
   const company = ctx?.clientName?.trim();
@@ -66,9 +74,7 @@ export function buildNoShowEmail(lead: Lead, ctx?: SenderContext): EmailContent 
     ? `We missed you today - ${company}`
     : "We missed you today";
 
-  const cta = lead.nativeSchedulingLink
-    ? `We'd love to find another slot — <a href="${escapeHtml(lead.nativeSchedulingLink)}">grab a time that works for you</a>.`
-    : `We'd love to find another slot — just reply and let me know what works and I'll get it on the books.`;
+  const cta = `We'd love to find another slot — <a href="${escapeHtml(schedulingLink)}">grab a time that works for you</a>.`;
 
   const html = `<p>Hi ${first},</p><p>${intro}It looks like we missed you for our meeting earlier today. ${cta}</p>`;
   return { subject, html };

@@ -176,10 +176,13 @@ export async function POST(
   });
 
   // Best-effort one-off email alongside the SMS. Never blocks the response.
+  // Only email when we have a rebooking link to send — the email is a one-way
+  // nudge to self-serve booking, not a reply channel.
   const senderEmail = subCampaignCtx?.senderEmail ?? null;
-  if (lead.email && senderEmail) {
+  const bookingLink = subCampaignCtx?.bookingLink ?? null;
+  if (lead.email && senderEmail && bookingLink) {
     try {
-      const emailContent = buildNoShowEmail(lead, senderCtx);
+      const emailContent = buildNoShowEmail(lead, bookingLink, senderCtx);
       const emailResult = await sendEmail({
         eaccount: senderEmail,
         to: lead.email,
@@ -205,7 +208,8 @@ export async function POST(
       leadId: lead.id,
       vendeluxLeadId,
       hasEmail: !!lead.email,
-      hasSender: !!senderEmail
+      hasSender: !!senderEmail,
+      hasLink: !!bookingLink
     });
   }
 
