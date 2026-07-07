@@ -206,6 +206,8 @@ export interface SubCampaignContext {
   agentPersonaName: string | null;
   boothLocation: string | null;
   bookingLink: string | null;
+  /** First connected sender address (the Instantly "eaccount" for one-off emails). */
+  senderEmail: string | null;
 }
 
 interface SubCampaignRow {
@@ -213,6 +215,21 @@ interface SubCampaignRow {
   ONSITE_CONTACT_NAME: string | null;
   BOOTH_LOCATION: string | null;
   BOOKING_LINK: string | null;
+  SENDER_EMAIL_LIST: unknown;
+}
+
+/** SENDER_EMAIL_LIST may come back as an array or a comma-separated string — take the first. */
+function firstSenderEmail(raw: unknown): string | null {
+  const list = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(",")
+      : [];
+  for (const item of list) {
+    const email = String(item).trim();
+    if (email) return email;
+  }
+  return null;
 }
 
 /**
@@ -229,7 +246,8 @@ export async function getSubCampaignContext(
        AGENT_PERSONAS       AS "AGENT_PERSONAS",
        ONSITE_CONTACT_NAME  AS "ONSITE_CONTACT_NAME",
        BOOTH_LOCATION       AS "BOOTH_LOCATION",
-       BOOKING_LINK         AS "BOOKING_LINK"
+       BOOKING_LINK         AS "BOOKING_LINK",
+       SENDER_EMAIL_LIST    AS "SENDER_EMAIL_LIST"
      FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
      WHERE TEAM_ID = ? AND EVENT_ID = ?
      ORDER BY LAST_UPDATED_AT DESC
@@ -268,9 +286,17 @@ export async function getSubCampaignContext(
   // Use the first row for booth/booking (most recently updated sub-campaign)
   const primary = rows[0];
 
+  // Sender email: first row that has a populated SENDER_EMAIL_LIST.
+  let senderEmail: string | null = null;
+  for (const row of rows) {
+    senderEmail = firstSenderEmail(row.SENDER_EMAIL_LIST);
+    if (senderEmail) break;
+  }
+
   return {
     agentPersonaName: personaName,
     boothLocation: primary.BOOTH_LOCATION ?? null,
-    bookingLink: primary.BOOKING_LINK ?? null
+    bookingLink: primary.BOOKING_LINK ?? null,
+    senderEmail
   };
 }

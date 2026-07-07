@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFirstNoShowSms,
+  buildNoShowEmail,
   buildVirtualOfferSms,
   type SenderContext
 } from "@/lib/core/outbound-templates";
@@ -24,6 +25,29 @@ const baseLead: Lead = {
   createdAt: new Date(),
   updatedAt: new Date()
 };
+
+describe("buildNoShowEmail", () => {
+  it("returns a subject and HTML greeting the lead by first name", () => {
+    const email = buildNoShowEmail(baseLead, { clientName: "Acme" });
+    expect(email.subject).toContain("Acme");
+    expect(email.html).toContain("Hi Alice,");
+    expect(email.html).toMatch(/^<p>/);
+  });
+
+  it("links the scheduling URL as an anchor when present", () => {
+    const email = buildNoShowEmail({
+      ...baseLead,
+      nativeSchedulingLink: "https://cal.example/alice"
+    });
+    expect(email.html).toContain('href="https://cal.example/alice"');
+  });
+
+  it("escapes HTML-unsafe characters in the lead name", () => {
+    const email = buildNoShowEmail({ ...baseLead, name: "A<b>&co" });
+    expect(email.html).not.toContain("<b>");
+    expect(email.html).toContain("&lt;b&gt;");
+  });
+});
 
 describe("buildFirstNoShowSms", () => {
   it("uses first name and includes the scheduling link when present", () => {

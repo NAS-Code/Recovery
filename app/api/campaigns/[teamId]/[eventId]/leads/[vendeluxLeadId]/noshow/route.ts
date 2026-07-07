@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE_NAME, validateAdminSession } from "@/lib/auth/admin-auth";
 import { CAMPAIGN_COOKIE_NAME, validateCampaignSession } from "@/lib/auth/campaign-auth";
-import { buildFirstNoShowSms } from "@/lib/core/outbound-templates";
+import {
+  buildFirstNoShowSms,
+  buildNoShowEmail
+} from "@/lib/core/outbound-templates";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { sendSms } from "@/lib/integrations/clicksend";
+import { sendEmail } from "@/lib/integrations/instantly";
 import { getLeadRepository } from "@/lib/integrations/data";
 import {
   combineMeetingDateTime,
@@ -170,6 +174,40 @@ export async function POST(
     text: body,
     messageType: "initial_outreach"
   });
+
+  // Best-effort one-off email alongside the SMS. Never blocks the response.
+  const senderEmail = subCampaignCtx?.senderEmail ?? null;
+  if (lead.email && senderEmail) {
+    try {
+      const emailContent = buildNoShowEmail(lead, senderCtx);
+      const emailResult = await sendEmail({
+        eaccount: senderEmail,
+        to: lead.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        leadId: lead.id
+      });
+      logger.info("noshow.email.sent", {
+        leadId: lead.id,
+        vendeluxLeadId,
+        emailMessageId: emailResult.messageId,
+        emailStatus: emailResult.status
+      });
+    } catch (err) {
+      logger.error("noshow.email.failed", {
+        leadId: lead.id,
+        vendeluxLeadId,
+        error: err instanceof Error ? err.message : String(err)
+      });
+    }
+  } else {
+    logger.info("noshow.email.skipped", {
+      leadId: lead.id,
+      vendeluxLeadId,
+      hasEmail: !!lead.email,
+      hasSender: !!senderEmail
+    });
+  }
 
   logger.info("noshow.snowflake.marked", {
     leadId: lead.id,

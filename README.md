@@ -137,7 +137,7 @@ migrations are applied to the production database automatically on deploy.
 | `CAMPAIGNS_ADMIN_USERNAME` | yes | Admin dashboard login (defaults to `vendelux`) |
 | `CAMPAIGNS_ADMIN_PASSWORD` | yes | Admin dashboard password |
 | `AGENT_PERSONA_NAME` | no | Fallback agent persona when Snowflake has none |
-| `INSTANTLY_API_KEY` | no | Required only when emailing |
+| `INSTANTLY_API_KEY` | no | Instantly customer-workspace key (`emails:create` scope); sends the one-off no-show email via `/api/v2/emails/test` |
 | `APP_BASE_URL` | no | Public URL (used for "Open in dashboard" buttons in Slack) |
 | `CRON_SECRET` | yes (in production) | Vercel Cron `Authorization: Bearer …` shared secret |
 

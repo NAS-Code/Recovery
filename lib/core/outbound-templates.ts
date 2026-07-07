@@ -45,6 +45,35 @@ export function buildVirtualOfferSms(lead: Lead, ctx?: SenderContext): string {
   return `Hi ${first}, ${intro}Looks like we didn't get to connect at the event. Would you be up for a quick virtual meeting next week instead?`;
 }
 
+export interface EmailContent {
+  subject: string;
+  html: string;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** One-off no-show recovery email (sent alongside the first SMS). */
+export function buildNoShowEmail(lead: Lead, ctx?: SenderContext): EmailContent {
+  const first = escapeHtml(firstName(lead.name));
+  const intro = escapeHtml(senderIntro(ctx));
+  const company = ctx?.clientName?.trim();
+  const subject = company
+    ? `Sorry we missed you — ${company}`
+    : "Sorry we missed you";
+
+  const cta = lead.nativeSchedulingLink
+    ? `Happy to find another slot — <a href="${escapeHtml(lead.nativeSchedulingLink)}">grab a time that works for you</a>.`
+    : `Happy to find another time — just reply and let me know what works and I'll get it on the books.`;
+
+  const html = `<p>Hi ${first},</p><p>${intro}Sorry we missed you for our meeting earlier today. ${cta}</p>`;
+  return { subject, html };
+}
+
 /** Lead proposed a time we can't auto-confirm — holding reply while the client checks. */
 export function buildRescheduleHoldingSms(lead: Lead): string {
   const first = firstName(lead.name);
