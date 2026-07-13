@@ -199,6 +199,51 @@ export type CampaignLeadConcierge = CampaignLead & {
 };
 
 // ---------------------------------------------------------------------------
+// Native scheduler rebooking link
+// ---------------------------------------------------------------------------
+
+const SCHEDULER_HOST = "https://vendelux.com/app/rsvp/hosted/";
+
+/**
+ * The native Vendelux scheduler link for a lead's campaign, with concierge
+ * UTM correlation (utm_content = vendeluxLeadId flows through to the booking
+ * webhook). Returns null when the campaign has no active scheduler — callers
+ * treat that as "no link to offer". Only ever emits native vendelux.com links.
+ *
+ * Slugs live in the Fivetran copy of the app DB; EVENTS_MEETINGSUBCAMPAIGN
+ * bridges the concierge sub-campaign UUID to the app-DB integer id.
+ */
+export async function getSchedulerRebookLink(
+  teamId: string,
+  eventId: string,
+  vendeluxLeadId: string
+): Promise<string | null> {
+  try {
+    const rows = await query<{ SLUG: string }>(
+      `SELECT et.SLUG AS "SLUG"
+       FROM VDXDB.APPDB_VEND2.MEETING_HOST_EVENT_TYPES et
+       JOIN VDXDB.APPDB_VEND2.EVENTS_MEETINGSUBCAMPAIGN sc
+         ON et.SUBCAMPAIGN_ID = sc.ID AND sc._FIVETRAN_DELETED = FALSE
+       WHERE et._FIVETRAN_DELETED = FALSE
+         AND et.STATUS = 'active'
+         AND sc.UUID IN (
+           SELECT VDX_SUB_CAMPAIGN_ID
+           FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
+           WHERE TEAM_ID = ? AND EVENT_ID = ?
+         )
+       ORDER BY et.ID
+       LIMIT 1`,
+      [teamId, eventId]
+    );
+    if (rows.length === 0 || !rows[0].SLUG) return null;
+    return `${SCHEDULER_HOST}${rows[0].SLUG}?utm_source=concierge&utm_content=${encodeURIComponent(vendeluxLeadId)}`;
+  } catch {
+    // Missing grant / transient failure → behave as "no scheduler link".
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sub-campaign config — agent persona, booth, booking link
 // ---------------------------------------------------------------------------
 

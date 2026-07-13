@@ -12,6 +12,7 @@ import { getLeadRepository } from "@/lib/integrations/data";
 import {
   combineMeetingDateTime,
   getLeadById,
+  getSchedulerRebookLink,
   getSubCampaignContext,
   hasCrossTeamConflict
 } from "@/lib/integrations/leads.snowflake";
@@ -142,13 +143,19 @@ export async function POST(
     });
   }
 
-  // Normal path — send the SMS
+  // Normal path — resolve the native scheduler rebooking link (null when the
+  // campaign has no active scheduler; only native vendelux.com links are sent).
+  const rebookLink = await getSchedulerRebookLink(teamId, eventId, vendeluxLeadId);
+
   const senderCtx = {
     agentName: agentPersonaName,
     clientName: campaign.teamName
   };
 
-  const body = buildFirstNoShowSms(lead, senderCtx);
+  const body = buildFirstNoShowSms(
+    { ...lead, nativeSchedulingLink: rebookLink ?? lead.nativeSchedulingLink },
+    senderCtx
+  );
 
   let sms;
   try {
@@ -176,13 +183,12 @@ export async function POST(
   });
 
   // Best-effort one-off email alongside the SMS. Never blocks the response.
-  // Only email when we have a rebooking link to send — the email is a one-way
-  // nudge to self-serve booking, not a reply channel.
+  // Only email when we have a NATIVE scheduler rebooking link to send — the
+  // email is a one-way nudge to self-serve booking, not a reply channel.
   const senderEmail = subCampaignCtx?.senderEmail ?? null;
-  const bookingLink = subCampaignCtx?.bookingLink ?? null;
-  if (lead.email && senderEmail && bookingLink) {
+  if (lead.email && senderEmail && rebookLink) {
     try {
-      const emailContent = buildNoShowEmail(lead, bookingLink, senderCtx);
+      const emailContent = buildNoShowEmail(lead, rebookLink, senderCtx);
       const emailResult = await sendEmail({
         eaccount: senderEmail,
         to: lead.email,
@@ -209,7 +215,7 @@ export async function POST(
       vendeluxLeadId,
       hasEmail: !!lead.email,
       hasSender: !!senderEmail,
-      hasLink: !!bookingLink
+      hasLink: !!rebookLink
     });
   }
 
