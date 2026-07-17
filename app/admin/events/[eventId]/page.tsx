@@ -121,12 +121,15 @@ export default async function EventMeetingsPage({
                       className="transition-colors hover:bg-vdx-cream/40"
                     >
                       <td className="px-5 py-3.5">
-                        <Link
+                        {/* Plain <a>: full navigation, immune to the AutoRefresh
+                            race that can swallow client-side Link transitions
+                            while the (slow, Snowflake-backed) target renders. */}
+                        <a
                           href={`/customer/${encodeURIComponent(lead.teamId)}/${encodeURIComponent(eventId)}`}
                           className="font-medium text-vdx-plum hover:text-vdx-coral hover:underline"
                         >
                           {lead.teamName ?? "—"}
-                        </Link>
+                        </a>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="font-medium text-slate-900">
