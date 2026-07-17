@@ -123,6 +123,29 @@ export async function hasCrossTeamConflict(
   return (rows[0]?.N ?? 0) > 0;
 }
 
+export type EventLead = CampaignLead & { teamId: string; teamName: string | null };
+
+/** All meetings booked for one event across every team/client. Admin-only view. */
+export async function listLeadsForEventAllTeams(
+  eventId: string
+): Promise<EventLead[]> {
+  const rows = await query<LeadRow & { TEAM_ID: string; TEAM: string | null }>(
+    `SELECT ${LEAD_COLUMNS},
+       TEAM_ID,
+       TEAM
+     FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
+     WHERE EVENT_ID = ?
+       AND STATUS = 'Meeting Booked'
+     ORDER BY TEAM ASC, DATE_MEETING_BOOKED_FOR ASC NULLS LAST, LEAD_NAME ASC`,
+    [eventId]
+  );
+  return rows.map((row) => ({
+    ...toDomain(row),
+    teamId: row.TEAM_ID,
+    teamName: row.TEAM ?? null
+  }));
+}
+
 export async function getLeadById(
   leadId: string
 ): Promise<CampaignLead | null> {

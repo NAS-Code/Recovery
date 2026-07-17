@@ -73,12 +73,20 @@ export default async function CampaignsPage() {
                 recovery. Client login credentials are auto-generated per campaign.
               </p>
             </div>
-            <Link
-              href="/admin/activity"
-              className="shrink-0 rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
-            >
-              SMS Activity
-            </Link>
+            <div className="flex shrink-0 gap-2">
+              <Link
+                href="/admin/events"
+                className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
+              >
+                Event View
+              </Link>
+              <Link
+                href="/admin/activity"
+                className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
+              >
+                SMS Activity
+              </Link>
+            </div>
           </div>
         </header>
 
