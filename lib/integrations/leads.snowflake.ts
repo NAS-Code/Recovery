@@ -144,15 +144,24 @@ export async function listLeadsForEventAllTeams(
      FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
      WHERE EVENT_ID = ?
        AND TEAM_ID IN (${placeholders})
-       AND STATUS = 'Meeting Booked'
-     ORDER BY TEAM_ID ASC, DATE_MEETING_BOOKED_FOR ASC NULLS LAST, LEAD_NAME ASC`,
+       AND STATUS = 'Meeting Booked'`,
     [eventId, ...teams.map((t) => t.teamId)]
   );
-  return rows.map((row) => ({
+  const leads = rows.map((row) => ({
     ...toDomain(row),
     teamId: row.TEAM_ID,
     teamName: nameByTeam.get(row.TEAM_ID) ?? null
   }));
+
+  // Client name A→Z, then real meeting date+time (nulls last), then lead name.
+  return leads.sort((a, b) => {
+    const team = (a.teamName ?? "").localeCompare(b.teamName ?? "");
+    if (team !== 0) return team;
+    const ta = combineMeetingDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const tb = combineMeetingDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (ta !== tb) return ta - tb;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export async function getLeadById(
