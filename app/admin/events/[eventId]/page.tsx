@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { VdxHeader } from "@/app/_components/VdxHeader";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
+import { ACTIVE_NO_SHOW_STATUSES } from "@/lib/core/types";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { getLeadRepository } from "@/lib/integrations/data";
 import {
@@ -12,6 +13,7 @@ import {
 import { formatMeetingTime } from "@/lib/util/format";
 import { StatusBadge } from "@/app/dashboard/_components/StatusBadge";
 import { LogoutButton } from "../../_components/LogoutButton";
+import { ManualRebookButton } from "../_components/ManualRebookButton";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -104,6 +106,7 @@ export default async function EventMeetingsPage({
                   <th className="px-5 py-3 font-semibold">Company</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Meeting</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -165,6 +168,12 @@ export default async function EventMeetingsPage({
                           : lead.meetingDate
                             ? lead.meetingDate.toISOString().slice(0, 10)
                             : "—"}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {concierge &&
+                        ACTIVE_NO_SHOW_STATUSES.includes(concierge.status) ? (
+                          <ManualRebookButton leadId={concierge.id} />
+                        ) : null}
                       </td>
                     </tr>
                   );
