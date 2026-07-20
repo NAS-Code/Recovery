@@ -153,13 +153,14 @@ export async function listLeadsForEventAllTeams(
     teamName: nameByTeam.get(row.TEAM_ID) ?? null
   }));
 
-  // Client name A→Z, then real meeting date+time (nulls last), then lead name.
+  // Soonest meeting first (date+time; leads with no parseable time last),
+  // then client name, then lead name as tie-breakers.
   return leads.sort((a, b) => {
-    const team = (a.teamName ?? "").localeCompare(b.teamName ?? "");
-    if (team !== 0) return team;
     const ta = combineMeetingDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     const tb = combineMeetingDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     if (ta !== tb) return ta - tb;
+    const team = (a.teamName ?? "").localeCompare(b.teamName ?? "");
+    if (team !== 0) return team;
     return a.name.localeCompare(b.name);
   });
 }
