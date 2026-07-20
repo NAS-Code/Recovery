@@ -125,25 +125,26 @@ export async function hasCrossTeamConflict(
 
 export type EventLead = CampaignLead & { teamId: string; teamName: string | null };
 
-/** All meetings booked for one event across every team/client. Admin-only view. */
+/**
+ * All meetings booked for one event across the given teams. Runs the fast
+ * per-campaign query in parallel per team — an event-wide scan of the Sigma
+ * view (WHERE EVENT_ID only) times out on large events.
+ */
 export async function listLeadsForEventAllTeams(
-  eventId: string
+  eventId: string,
+  teams: { teamId: string; teamName: string }[]
 ): Promise<EventLead[]> {
-  const rows = await query<LeadRow & { TEAM_ID: string; TEAM: string | null }>(
-    `SELECT ${LEAD_COLUMNS},
-       TEAM_ID,
-       TEAM
-     FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
-     WHERE EVENT_ID = ?
-       AND STATUS = 'Meeting Booked'
-     ORDER BY TEAM ASC, DATE_MEETING_BOOKED_FOR ASC NULLS LAST, LEAD_NAME ASC`,
-    [eventId]
+  const perTeam = await Promise.all(
+    teams.map(async (t) => {
+      const leads = await listLeadsForCampaign(t.teamId, eventId);
+      return leads.map((l) => ({
+        ...l,
+        teamId: t.teamId,
+        teamName: t.teamName
+      }));
+    })
   );
-  return rows.map((row) => ({
-    ...toDomain(row),
-    teamId: row.TEAM_ID,
-    teamName: row.TEAM ?? null
-  }));
+  return perTeam.flat();
 }
 
 export async function getLeadById(

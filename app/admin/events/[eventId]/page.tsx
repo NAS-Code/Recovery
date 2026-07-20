@@ -49,16 +49,18 @@ export default async function EventMeetingsPage({
     redirect(`/admin/login?next=/admin/events/${encodeURIComponent(eventId)}`);
   }
 
-  const [leads, campaigns] = await Promise.all([
-    listLeadsForEventAllTeams(eventId),
-    getCampaignRepository().listActiveCampaigns()
-  ]);
+  const campaigns = await getCampaignRepository().listActiveCampaigns();
+  const eventCampaigns = campaigns.filter((c) => c.eventId === eventId);
+
+  const leads = await listLeadsForEventAllTeams(
+    eventId,
+    eventCampaigns.map((c) => ({ teamId: c.teamId, teamName: c.teamName }))
+  );
   const states = await getLeadRepository().getLeadStatesByVendeluxIds(
     leads.map((l) => l.leadId)
   );
 
-  const eventName =
-    campaigns.find((c) => c.eventId === eventId)?.eventName ?? null;
+  const eventName = eventCampaigns[0]?.eventName ?? null;
   const eventStart = leads.find((l) => l.eventStartDate)?.eventStartDate ?? null;
   const eventEnd = leads.find((l) => l.eventEndDate)?.eventEndDate ?? null;
   const dateRange =
