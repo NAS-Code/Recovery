@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AutoRefresh } from "@/app/_components/AutoRefresh";
 import { VdxHeader } from "@/app/_components/VdxHeader";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
@@ -74,7 +73,6 @@ export default async function EventMeetingsPage({
     <>
       <VdxHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
-        <AutoRefresh intervalMs={5000} />
         <Link
           href="/admin/events"
           className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
