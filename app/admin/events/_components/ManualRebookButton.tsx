@@ -8,7 +8,14 @@ import { useState } from "react";
  * bookings confirm immediately; external-calendar bookings go to the client's
  * approval popup, same as an SMS reschedule.
  */
-export function ManualRebookButton({ leadId }: { leadId: string }) {
+export function ManualRebookButton({
+  leadId,
+  disabledReason
+}: {
+  leadId: string | null;
+  /** Non-null → button renders grayed out with this tooltip. */
+  disabledReason?: string | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"native" | "external">("native");
@@ -47,6 +54,19 @@ export function ManualRebookButton({ leadId }: { leadId: string }) {
     } finally {
       setPending(false);
     }
+  }
+
+  if (disabledReason || !leadId) {
+    return (
+      <button
+        type="button"
+        disabled
+        title={disabledReason ?? undefined}
+        className="cursor-not-allowed rounded-md bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400"
+      >
+        Mark rebooked
+      </button>
+    );
   }
 
   if (!open) {

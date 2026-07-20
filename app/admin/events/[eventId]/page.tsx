@@ -170,10 +170,16 @@ export default async function EventMeetingsPage({
                             : "—"}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {concierge &&
-                        ACTIVE_NO_SHOW_STATUSES.includes(concierge.status) ? (
-                          <ManualRebookButton leadId={concierge.id} />
-                        ) : null}
+                        <ManualRebookButton
+                          leadId={concierge?.id ?? null}
+                          disabledReason={
+                            !concierge
+                              ? "Lead is not in the concierge system (not marked no-show)"
+                              : ACTIVE_NO_SHOW_STATUSES.includes(concierge.status)
+                                ? null
+                                : `Lead is ${concierge.status.replace(/_/g, " ")} — nothing to rebook`
+                          }
+                        />
                       </td>
                     </tr>
                   );
