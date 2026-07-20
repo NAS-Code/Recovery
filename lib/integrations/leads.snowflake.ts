@@ -126,25 +126,33 @@ export async function hasCrossTeamConflict(
 export type EventLead = CampaignLead & { teamId: string; teamName: string | null };
 
 /**
- * All meetings booked for one event across the given teams. Runs the fast
- * per-campaign query in parallel per team — an event-wide scan of the Sigma
- * view (WHERE EVENT_ID only) times out on large events.
+ * All meetings booked for one event across the given teams, in ONE query.
+ * TEAM_ID IN (...) keeps the pruning that makes the per-campaign query fast;
+ * parallel per-team queries saturate the warehouse and all time out, and an
+ * unpruned EVENT_ID-only scan times out too.
  */
 export async function listLeadsForEventAllTeams(
   eventId: string,
   teams: { teamId: string; teamName: string }[]
 ): Promise<EventLead[]> {
-  const perTeam = await Promise.all(
-    teams.map(async (t) => {
-      const leads = await listLeadsForCampaign(t.teamId, eventId);
-      return leads.map((l) => ({
-        ...l,
-        teamId: t.teamId,
-        teamName: t.teamName
-      }));
-    })
+  if (teams.length === 0) return [];
+  const nameByTeam = new Map(teams.map((t) => [t.teamId, t.teamName]));
+  const placeholders = teams.map(() => "?").join(", ");
+  const rows = await query<LeadRow & { TEAM_ID: string }>(
+    `SELECT ${LEAD_COLUMNS},
+       TEAM_ID
+     FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
+     WHERE EVENT_ID = ?
+       AND TEAM_ID IN (${placeholders})
+       AND STATUS = 'Meeting Booked'
+     ORDER BY TEAM_ID ASC, DATE_MEETING_BOOKED_FOR ASC NULLS LAST, LEAD_NAME ASC`,
+    [eventId, ...teams.map((t) => t.teamId)]
   );
-  return perTeam.flat();
+  return rows.map((row) => ({
+    ...toDomain(row),
+    teamId: row.TEAM_ID,
+    teamName: nameByTeam.get(row.TEAM_ID) ?? null
+  }));
 }
 
 export async function getLeadById(
