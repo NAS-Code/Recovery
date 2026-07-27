@@ -86,6 +86,19 @@ export default async function CampaignDashboardPage({
     leads.map((l) => l.leadId)
   );
 
+  // Soonest meeting first, using the concierge time when a lead was
+  // rescheduled; leads with no parseable time sort last.
+  leads.sort((a, b) => {
+    const ta =
+      (states.get(a.leadId)?.scheduledMeetingTime ?? combineMeetingDateTime(a))
+        ?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const tb =
+      (states.get(b.leadId)?.scheduledMeetingTime ?? combineMeetingDateTime(b))
+        ?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (ta !== tb) return ta - tb;
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <>
       <VdxHeader rightSlot={<LogoutButton />} />
