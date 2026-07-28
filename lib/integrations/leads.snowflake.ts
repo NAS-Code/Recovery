@@ -1,5 +1,6 @@
 import type { Lead, LeadStatus } from "@/lib/core/types";
 import { query } from "@/lib/integrations/snowflake";
+import { logger } from "@/lib/util/logger";
 
 /**
  * One row from DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS scoped to a
@@ -114,13 +115,24 @@ export async function hasCrossTeamConflict(
   phone: string,
   teamId: string
 ): Promise<boolean> {
-  const rows = await query<{ N: number }>(
-    `SELECT COUNT(*) AS "N"
-     FROM SILVER.TEXTING.POSITIVE_LEAD_DETAILS
-     WHERE TO_NUMBER = ? AND TEAM_ID != ?`,
-    [phone, teamId]
-  );
-  return (rows[0]?.N ?? 0) > 0;
+  try {
+    const rows = await query<{ N: number }>(
+      `SELECT COUNT(*) AS "N"
+       FROM SILVER.TEXTING.POSITIVE_LEAD_DETAILS
+       WHERE TO_NUMBER = ? AND TEAM_ID != ?`,
+      [phone, teamId]
+    );
+    return (rows[0]?.N ?? 0) > 0;
+  } catch (err) {
+    // Fail OPEN: this view isn't readable by our role today, and throwing here
+    // would 500 the whole no-show action. The Postgres active-lead-by-phone
+    // guard still catches the common duplicate case.
+    logger.warn("noshow.cross_team_check_unavailable", {
+      teamId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return false;
+  }
 }
 
 export type EventLead = CampaignLead & { teamId: string; teamName: string | null };
