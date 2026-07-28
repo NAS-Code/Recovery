@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ClicksendError,
+  isConciergeInboundNumber,
   parseInboundWebhook
 } from "@/lib/integrations/clicksend";
 
@@ -120,5 +121,47 @@ describe("parseInboundWebhook — invalid payloads", () => {
     expect(() => parseInboundWebhook(null)).toThrow(ClicksendError);
     expect(() => parseInboundWebhook("string")).toThrow(ClicksendError);
     expect(() => parseInboundWebhook(42)).toThrow(ClicksendError);
+  });
+});
+
+describe("isConciergeInboundNumber", () => {
+  const ORIGINAL = {
+    list: process.env.CONCIERGE_INBOUND_NUMBERS,
+    from: process.env.CLICKSEND_FROM_NUMBER
+  };
+
+  beforeEach(() => {
+    delete process.env.CONCIERGE_INBOUND_NUMBERS;
+    delete process.env.CLICKSEND_FROM_NUMBER;
+  });
+
+  afterEach(() => {
+    process.env.CONCIERGE_INBOUND_NUMBERS = ORIGINAL.list;
+    process.env.CLICKSEND_FROM_NUMBER = ORIGINAL.from;
+  });
+
+  it("matches against the explicit allowlist regardless of formatting", () => {
+    process.env.CONCIERGE_INBOUND_NUMBERS = "+15551234567, +15559998888";
+    expect(isConciergeInboundNumber("+15551234567")).toBe(true);
+    expect(isConciergeInboundNumber("15551234567")).toBe(true);
+    expect(isConciergeInboundNumber("(555) 123-4567")).toBe(true);
+    expect(isConciergeInboundNumber("+15559998888")).toBe(true);
+  });
+
+  it("rejects a number not in the allowlist (the other workflow's number)", () => {
+    process.env.CONCIERGE_INBOUND_NUMBERS = "+15551234567";
+    expect(isConciergeInboundNumber("+15550000000")).toBe(false);
+  });
+
+  it("falls back to CLICKSEND_FROM_NUMBER when no allowlist is set", () => {
+    process.env.CLICKSEND_FROM_NUMBER = "+15551234567";
+    expect(isConciergeInboundNumber("+15551234567")).toBe(true);
+    expect(isConciergeInboundNumber("+15550000000")).toBe(false);
+  });
+
+  it("fails open when nothing is configured or destination is unknown", () => {
+    expect(isConciergeInboundNumber("+15551234567")).toBe(true); // no config
+    process.env.CONCIERGE_INBOUND_NUMBERS = "+15551234567";
+    expect(isConciergeInboundNumber(null)).toBe(true); // unknown destination
   });
 });

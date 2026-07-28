@@ -44,3 +44,56 @@ export function buildVirtualOfferSms(lead: Lead, ctx?: SenderContext): string {
   const intro = senderIntro(ctx);
   return `Hi ${first}, ${intro}Looks like we didn't get to connect at the event. Would you be up for a quick virtual meeting next week instead?`;
 }
+
+export interface EmailContent {
+  subject: string;
+  html: string;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * One-off no-show recovery email. Only sent when we have a rebooking link to
+ * give the lead (the caller gates on this), so the CTA always links out —
+ * the email is a one-way nudge, not a reply channel.
+ */
+export function buildNoShowEmail(
+  lead: Lead,
+  schedulingLink: string,
+  ctx?: SenderContext
+): EmailContent {
+  const first = escapeHtml(firstName(lead.name));
+  const intro = escapeHtml(senderIntro(ctx));
+  const company = ctx?.clientName?.trim();
+  const subject = company
+    ? `We missed you today - ${company}`
+    : "We missed you today";
+
+  const cta = `We'd love to find another slot — <a href="${escapeHtml(schedulingLink)}">grab a time that works for you</a>.`;
+
+  const html = `<p>Hi ${first},</p><p>${intro}It looks like we missed you for our meeting earlier today. ${cta}</p>`;
+  return { subject, html };
+}
+
+/** Lead proposed a time we can't auto-confirm — holding reply while the client checks. */
+export function buildRescheduleHoldingSms(lead: Lead): string {
+  const first = firstName(lead.name);
+  return `Thanks ${first}! Let me confirm that time works on our end and I'll get right back to you.`;
+}
+
+/** Proposed time clashes with another meeting (or the client rejected it) — ask for another. */
+export function buildRescheduleConflictSms(lead: Lead): string {
+  const first = firstName(lead.name);
+  return `Thanks ${first} — unfortunately that time's no longer open. Is there another time that works for you?`;
+}
+
+/** Client approved the proposed time — confirm it with the lead. */
+export function buildRescheduleConfirmedSms(lead: Lead): string {
+  const first = firstName(lead.name);
+  return `Great news ${first} — you're all set. See you then!`;
+}

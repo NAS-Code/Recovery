@@ -1,5 +1,6 @@
 import type { Lead, LeadStatus } from "@/lib/core/types";
 import { query } from "@/lib/integrations/snowflake";
+import { logger } from "@/lib/util/logger";
 
 /**
  * One row from DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS scoped to a
@@ -20,6 +21,8 @@ export interface CampaignLead {
   phone: string | null;
   /** Onsite Contact Manager — the Vendelux rep who booked the meeting with this lead. */
   ocm: string | null;
+  /** Customer Success Manager — the Vendelux rep who owns the client relationship. */
+  csm: string | null;
   vendeluxStatus: string | null;
   meetingDate: Date | null;
   meetingTimeRaw: string | null;
@@ -37,9 +40,10 @@ interface LeadRow {
   COMPANY: string | null;
   NUMBER_DIALED: string | null;
   OCM: string | null;
+  CSM: string | null;
   STATUS: string | null;
-  DATE_MEETING_BOOKED_FOR_1: Date | null;
-  TIME_MEETING_BOOKED_FOR_1: string | null;
+  DATE_MEETING_BOOKED_FOR: Date | null;
+  TIME_MEETING_BOOKED_FOR: string | null;
   MEETING_TIMEZONE: string | null;
   EVENT_START_DATE: Date | null;
   EVENT_END_DATE: Date | null;
@@ -55,11 +59,12 @@ function toDomain(row: LeadRow): CampaignLead {
     company: row.COMPANY,
     phone: row.NUMBER_DIALED,
     ocm: row.OCM ?? null,
+    csm: row.CSM ?? null,
     vendeluxStatus: row.STATUS,
-    meetingDate: row.DATE_MEETING_BOOKED_FOR_1
-      ? new Date(row.DATE_MEETING_BOOKED_FOR_1)
+    meetingDate: row.DATE_MEETING_BOOKED_FOR
+      ? new Date(row.DATE_MEETING_BOOKED_FOR)
       : null,
-    meetingTimeRaw: row.TIME_MEETING_BOOKED_FOR_1,
+    meetingTimeRaw: row.TIME_MEETING_BOOKED_FOR,
     meetingTimezone: row.MEETING_TIMEZONE,
     eventStartDate: row.EVENT_START_DATE ? new Date(row.EVENT_START_DATE) : null,
     eventEndDate: row.EVENT_END_DATE ? new Date(row.EVENT_END_DATE) : null
@@ -75,9 +80,10 @@ const LEAD_COLUMNS = `
   COMPANY,
   NUMBER_DIALED,
   OCM,
+  CSM,
   STATUS,
-  DATE_MEETING_BOOKED_FOR_1,
-  TIME_MEETING_BOOKED_FOR_1,
+  DATE_MEETING_BOOKED_FOR,
+  TIME_MEETING_BOOKED_FOR,
   MEETING_TIMEZONE,
   EVENT_START_DATE,
   EVENT_END_DATE
@@ -93,10 +99,82 @@ export async function listLeadsForCampaign(
      WHERE TEAM_ID = ?
        AND EVENT_ID = ?
        AND STATUS = 'Meeting Booked'
-     ORDER BY DATE_MEETING_BOOKED_FOR_1 ASC NULLS LAST, LEAD_NAME ASC`,
+     ORDER BY DATE_MEETING_BOOKED_FOR ASC NULLS LAST, LEAD_NAME ASC`,
     [teamId, eventId]
   );
   return rows.map(toDomain);
+}
+
+/**
+ * Data-team rule: if this phone number is a positive lead under a *different*
+ * team, don't text them — the other team owns the relationship. Source of truth
+ * is SILVER.TEXTING.POSITIVE_LEAD_DETAILS (full population, not just leads we've
+ * already cached in Postgres).
+ */
+export async function hasCrossTeamConflict(
+  phone: string,
+  teamId: string
+): Promise<boolean> {
+  try {
+    const rows = await query<{ N: number }>(
+      `SELECT COUNT(*) AS "N"
+       FROM SILVER.TEXTING.POSITIVE_LEAD_DETAILS
+       WHERE TO_NUMBER = ? AND TEAM_ID != ?`,
+      [phone, teamId]
+    );
+    return (rows[0]?.N ?? 0) > 0;
+  } catch (err) {
+    // Fail OPEN: this view isn't readable by our role today, and throwing here
+    // would 500 the whole no-show action. The Postgres active-lead-by-phone
+    // guard still catches the common duplicate case.
+    logger.warn("noshow.cross_team_check_unavailable", {
+      teamId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return false;
+  }
+}
+
+export type EventLead = CampaignLead & { teamId: string; teamName: string | null };
+
+/**
+ * All meetings booked for one event across the given teams, in ONE query.
+ * TEAM_ID IN (...) keeps the pruning that makes the per-campaign query fast;
+ * parallel per-team queries saturate the warehouse and all time out, and an
+ * unpruned EVENT_ID-only scan times out too.
+ */
+export async function listLeadsForEventAllTeams(
+  eventId: string,
+  teams: { teamId: string; teamName: string }[]
+): Promise<EventLead[]> {
+  if (teams.length === 0) return [];
+  const nameByTeam = new Map(teams.map((t) => [t.teamId, t.teamName]));
+  const placeholders = teams.map(() => "?").join(", ");
+  const rows = await query<LeadRow & { TEAM_ID: string }>(
+    `SELECT ${LEAD_COLUMNS},
+       TEAM_ID
+     FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
+     WHERE EVENT_ID = ?
+       AND TEAM_ID IN (${placeholders})
+       AND STATUS = 'Meeting Booked'`,
+    [eventId, ...teams.map((t) => t.teamId)]
+  );
+  const leads = rows.map((row) => ({
+    ...toDomain(row),
+    teamId: row.TEAM_ID,
+    teamName: nameByTeam.get(row.TEAM_ID) ?? null
+  }));
+
+  // Soonest meeting first (date+time; leads with no parseable time last),
+  // then client name, then lead name as tie-breakers.
+  return leads.sort((a, b) => {
+    const ta = combineMeetingDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const tb = combineMeetingDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (ta !== tb) return ta - tb;
+    const team = (a.teamName ?? "").localeCompare(b.teamName ?? "");
+    if (team !== 0) return team;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export async function getLeadById(
@@ -175,6 +253,51 @@ export type CampaignLeadConcierge = CampaignLead & {
 };
 
 // ---------------------------------------------------------------------------
+// Native scheduler rebooking link
+// ---------------------------------------------------------------------------
+
+const SCHEDULER_HOST = "https://vendelux.com/app/rsvp/hosted/";
+
+/**
+ * The native Vendelux scheduler link for a lead's campaign, with concierge
+ * UTM correlation (utm_content = vendeluxLeadId flows through to the booking
+ * webhook). Returns null when the campaign has no active scheduler — callers
+ * treat that as "no link to offer". Only ever emits native vendelux.com links.
+ *
+ * Slugs live in the Fivetran copy of the app DB; EVENTS_MEETINGSUBCAMPAIGN
+ * bridges the concierge sub-campaign UUID to the app-DB integer id.
+ */
+export async function getSchedulerRebookLink(
+  teamId: string,
+  eventId: string,
+  vendeluxLeadId: string
+): Promise<string | null> {
+  try {
+    const rows = await query<{ SLUG: string }>(
+      `SELECT et.SLUG AS "SLUG"
+       FROM VDXDB.APPDB_VEND2.MEETING_HOST_EVENT_TYPES et
+       JOIN VDXDB.APPDB_VEND2.EVENTS_MEETINGSUBCAMPAIGN sc
+         ON et.SUBCAMPAIGN_ID = sc.ID AND sc._FIVETRAN_DELETED = FALSE
+       WHERE et._FIVETRAN_DELETED = FALSE
+         AND et.STATUS = 'active'
+         AND sc.UUID IN (
+           SELECT VDX_SUB_CAMPAIGN_ID
+           FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
+           WHERE TEAM_ID = ? AND EVENT_ID = ?
+         )
+       ORDER BY et.ID
+       LIMIT 1`,
+      [teamId, eventId]
+    );
+    if (rows.length === 0 || !rows[0].SLUG) return null;
+    return `${SCHEDULER_HOST}${rows[0].SLUG}?utm_source=concierge&utm_content=${encodeURIComponent(vendeluxLeadId)}`;
+  } catch {
+    // Missing grant / transient failure → behave as "no scheduler link".
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sub-campaign config — agent persona, booth, booking link
 // ---------------------------------------------------------------------------
 
@@ -182,6 +305,8 @@ export interface SubCampaignContext {
   agentPersonaName: string | null;
   boothLocation: string | null;
   bookingLink: string | null;
+  /** First connected sender address (the Instantly "eaccount" for one-off emails). */
+  senderEmail: string | null;
 }
 
 interface SubCampaignRow {
@@ -189,6 +314,21 @@ interface SubCampaignRow {
   ONSITE_CONTACT_NAME: string | null;
   BOOTH_LOCATION: string | null;
   BOOKING_LINK: string | null;
+  SENDER_EMAIL_LIST: unknown;
+}
+
+/** SENDER_EMAIL_LIST may come back as an array or a comma-separated string — take the first. */
+function firstSenderEmail(raw: unknown): string | null {
+  const list = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(",")
+      : [];
+  for (const item of list) {
+    const email = String(item).trim();
+    if (email) return email;
+  }
+  return null;
 }
 
 /**
@@ -205,7 +345,8 @@ export async function getSubCampaignContext(
        AGENT_PERSONAS       AS "AGENT_PERSONAS",
        ONSITE_CONTACT_NAME  AS "ONSITE_CONTACT_NAME",
        BOOTH_LOCATION       AS "BOOTH_LOCATION",
-       BOOKING_LINK         AS "BOOKING_LINK"
+       BOOKING_LINK         AS "BOOKING_LINK",
+       SENDER_EMAIL_LIST    AS "SENDER_EMAIL_LIST"
      FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
      WHERE TEAM_ID = ? AND EVENT_ID = ?
      ORDER BY LAST_UPDATED_AT DESC
@@ -244,9 +385,17 @@ export async function getSubCampaignContext(
   // Use the first row for booth/booking (most recently updated sub-campaign)
   const primary = rows[0];
 
+  // Sender email: first row that has a populated SENDER_EMAIL_LIST.
+  let senderEmail: string | null = null;
+  for (const row of rows) {
+    senderEmail = firstSenderEmail(row.SENDER_EMAIL_LIST);
+    if (senderEmail) break;
+  }
+
   return {
     agentPersonaName: personaName,
     boothLocation: primary.BOOTH_LOCATION ?? null,
-    bookingLink: primary.BOOKING_LINK ?? null
+    bookingLink: primary.BOOKING_LINK ?? null,
+    senderEmail
   };
 }

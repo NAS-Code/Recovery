@@ -5,7 +5,8 @@ import type {
   Event,
   Lead,
   LeadStatus,
-  MessageDirection
+  MessageDirection,
+  MessageType
 } from "@/lib/core/types";
 import { PrismaLeadRepository } from "@/lib/integrations/data.prisma";
 
@@ -15,6 +16,7 @@ export interface AppendMessageInput {
   text: string;
   classification?: ClaudeClassification | null;
   timestamp?: Date;
+  messageType?: MessageType | null;
 }
 
 /**
@@ -59,6 +61,16 @@ export interface LeadRepository {
   getLeadByVendeluxId(vendeluxLeadId: string): Promise<Lead | null>;
   getLeadStatesByVendeluxIds(ids: string[]): Promise<Map<string, Lead>>;
   cacheSnowflakeLead(input: CacheSnowflakeLeadInput): Promise<Lead>;
+  /** Mark a lead as suppressed (duplicate phone, no SMS sent). */
+  suppressLead(leadId: string): Promise<void>;
+  /** Store a lead-proposed reschedule time and move to pending_client_approval. */
+  setProposedMeetingTime(leadId: string, time: Date): Promise<void>;
+  /** Client approved: proposed time → scheduled, clear proposed, confirm reschedule. */
+  approveProposedTime(leadId: string): Promise<void>;
+  /** Client rejected: clear proposed time, reopen the reschedule conversation. */
+  rejectProposedTime(leadId: string): Promise<void>;
+  /** Cancel all suppressed leads older than the given threshold. Returns count. */
+  cancelExpiredSuppressions(olderThan: Date): Promise<number>;
 }
 
 let repository: LeadRepository | null = null;

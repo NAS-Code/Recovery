@@ -2,8 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "No-Show Recovery",
-  description: "Event concierge no-show recovery dashboard"
+  title: "Vendelux Concierge",
+  description: "No-show recovery and meeting management"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

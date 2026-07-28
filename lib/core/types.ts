@@ -7,23 +7,34 @@ export type LeadStatus =
   | "confirmed_virtual"
   | "context_question"
   | "not_interested"
-  | "uncategorized";
+  | "uncategorized"
+  | "canceled"
+  | "pending_client_approval";
 
 export const ACTIVE_NO_SHOW_STATUSES: LeadStatus[] = [
   "no_show",
   "in_reschedule_convo",
   "in_virtual_convo",
   "context_question",
-  "uncategorized"
+  "uncategorized",
+  "pending_client_approval"
 ];
 
 export const TERMINAL_STATUSES: LeadStatus[] = [
   "confirmed_reschedule",
   "confirmed_virtual",
-  "not_interested"
+  "not_interested",
+  "canceled"
 ];
 
 export type MessageDirection = "inbound" | "outbound";
+
+export type MessageType =
+  | "initial_outreach"
+  | "auto_reply"
+  | "inbound_reply"
+  | "eod_checkin"
+  | "virtual_offer";
 
 export type ClaudeCategory =
   | "reschedule_at_event"
@@ -93,6 +104,10 @@ export interface Lead {
   fdeOwnerSlackId: string | null;
   status: LeadStatus;
   scheduledMeetingTime: Date | null;
+  /** A reschedule time the lead proposed, awaiting client approval (client-calendar mode). */
+  proposedMeetingTime: Date | null;
+  /** Non-null when this lead was silently suppressed (duplicate phone across campaigns). */
+  suppressedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,4 +119,5 @@ export interface ConversationMessage {
   text: string;
   timestamp: Date;
   claudeClassification: ClaudeClassification | null;
+  messageType: MessageType | null;
 }

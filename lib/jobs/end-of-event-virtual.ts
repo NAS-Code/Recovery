@@ -58,7 +58,8 @@ export async function runEndOfEventVirtual(
         await repo.appendMessage({
           leadId: lead.id,
           direction: "outbound",
-          text: body
+          text: body,
+          messageType: "virtual_offer"
         });
         smsSent++;
       } catch (err) {

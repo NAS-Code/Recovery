@@ -9,7 +9,9 @@ const styles: Record<LeadStatus, string> = {
   confirmed_virtual: "bg-emerald-100 text-emerald-700 ring-emerald-200",
   context_question: "bg-purple-100 text-purple-700 ring-purple-200",
   not_interested: "bg-slate-200 text-slate-700 ring-slate-300",
-  uncategorized: "bg-orange-100 text-orange-800 ring-orange-200"
+  uncategorized: "bg-orange-100 text-orange-800 ring-orange-200",
+  canceled: "bg-slate-200 text-slate-500 ring-slate-300",
+  pending_client_approval: "bg-amber-100 text-amber-800 ring-amber-200"
 };
 
 const labels: Record<LeadStatus, string> = {
@@ -21,7 +23,9 @@ const labels: Record<LeadStatus, string> = {
   confirmed_virtual: "Virtual confirmed",
   context_question: "Needs context",
   not_interested: "Not interested",
-  uncategorized: "Uncategorized"
+  uncategorized: "Uncategorized",
+  canceled: "Canceled",
+  pending_client_approval: "Awaiting your approval"
 };
 
 export function StatusBadge({ status }: { status: LeadStatus }) {

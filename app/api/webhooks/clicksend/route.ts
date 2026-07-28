@@ -1,16 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { nextState } from "@/lib/core/conversation-state";
-import type { ConversationMessage, LeadStatus } from "@/lib/core/types";
+import type { ConversationMessage, Lead, LeadStatus } from "@/lib/core/types";
+import { hasConflict } from "@/lib/core/availability";
+import {
+  buildRescheduleConflictSms,
+  buildRescheduleHoldingSms
+} from "@/lib/core/outbound-templates";
 import { classifyConversation } from "@/lib/integrations/claude";
 import { tryParseIsoDate } from "@/lib/util/format";
+import { getLeadById } from "@/lib/integrations/leads.snowflake";
+import { getCampaignMeetingTimes } from "@/lib/integrations/meetings";
 import {
+  isConciergeInboundNumber,
   parseInboundWebhook,
   sendSms,
   type InboundSms
 } from "@/lib/integrations/clicksend";
 import { getLeadRepository } from "@/lib/integrations/data";
-import { notifyFdeForReview } from "@/lib/integrations/slack";
+import { notifyFdeForReview, notifyRebooked } from "@/lib/integrations/slack";
 import { logger } from "@/lib/util/logger";
 
 export const runtime = "nodejs";
@@ -35,8 +43,20 @@ export async function POST(req: NextRequest) {
 
   logger.info("clicksend.webhook.received", {
     from: inbound.from,
+    to: inbound.to,
     messageId: inbound.messageId
   });
+
+  // Two ClickSend numbers are shared across workflows. Only handle messages
+  // delivered to a concierge-owned number; ignore everything else so we never
+  // reply to (or escalate) traffic that belongs to another workflow.
+  if (!isConciergeInboundNumber(inbound.to)) {
+    logger.info("clicksend.webhook.ignored_non_concierge_number", {
+      to: inbound.to,
+      messageId: inbound.messageId
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   waitUntil(processInbound(inbound));
 
@@ -85,7 +105,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
       direction: "inbound",
       text: inbound.text,
       timestamp: inbound.timestamp,
-      claudeClassification: null
+      claudeClassification: null,
+      messageType: "inbound_reply"
     }
   ];
 
@@ -117,7 +138,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
       leadId: lead.id,
       direction: "inbound",
       text: inbound.text,
-      timestamp: inbound.timestamp
+      timestamp: inbound.timestamp,
+      messageType: "inbound_reply"
     });
     return;
   }
@@ -127,8 +149,23 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     direction: "inbound",
     text: inbound.text,
     timestamp: inbound.timestamp,
-    classification
+    classification,
+    messageType: "inbound_reply"
   });
+
+  // Reschedule confirmations don't auto-confirm. In client-calendar mode we can't
+  // see meetings booked outside Vendelux, so check the times we DO know for a
+  // clash, then hold for the client to approve before telling the lead anything.
+  const proposedTime =
+    classification.category === "reschedule_at_event" &&
+    classification.is_confirmation &&
+    classification.confirmed_time
+      ? tryParseIsoDate(classification.confirmed_time)
+      : null;
+  if (proposedTime) {
+    await handleRescheduleProposal(lead, proposedTime);
+    return;
+  }
 
   const newStatus = nextState(lead.status, classification);
   if (newStatus !== lead.status) {
@@ -142,6 +179,27 @@ async function processInbound(inbound: InboundSms): Promise<void> {
 
   await maybeUpdateMeetingTime(repo, lead.id, newStatus, classification.confirmed_time);
 
+  // Notify the team only on the transition *into* a confirmed state, not on
+  // every later message while already confirmed.
+  if (newStatus !== lead.status && RESCHEDULE_STATUSES.includes(newStatus)) {
+    // Pull OCM/CSM names from Snowflake so we can tag them. Best-effort.
+    const sf = lead.vendeluxLeadId
+      ? await getLeadById(lead.vendeluxLeadId).catch(() => null)
+      : null;
+    await notifyRebooked({
+      lead: { ...lead, status: newStatus },
+      clientName: client?.name ?? null,
+      eventName: event?.name ?? null,
+      previousTime: lead.scheduledMeetingTime,
+      meetingTime: classification.confirmed_time
+        ? tryParseIsoDate(classification.confirmed_time)
+        : null,
+      timezone: event?.timezone,
+      ocm: sf?.ocm,
+      csm: sf?.csm
+    });
+  }
+
   if (classification.draft_reply) {
     await sendDraftReply({
       leadId: lead.id,
@@ -151,15 +209,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
     return;
   }
 
-  // Fallback: send a generic holding reply so the lead is never ghosted,
-  // then notify the FDE for a proper follow-up.
-  const fallback =
-    "Thanks for your reply! Let me loop in the right person — someone will get back to you shortly.";
-  await sendDraftReply({
-    leadId: lead.id,
-    phone: lead.phone,
-    body: fallback
-  });
+  // No draft_reply — route to a human via Slack silently.
+  // No auto-reply to the lead so the handoff feels natural.
 
   await notifyFdeForReview({
     lead: { ...lead, status: newStatus },
@@ -202,6 +253,54 @@ async function maybeUpdateMeetingTime(
   });
 }
 
+/**
+ * A reschedule time the lead proposed. We can't see the client's full calendar,
+ * so: reject times that clash with meetings we DO know, otherwise hold the lead
+ * and surface the time for client approval. Never confirms to the lead here.
+ */
+async function handleRescheduleProposal(
+  lead: Lead,
+  proposedTime: Date
+): Promise<void> {
+  const repo = getLeadRepository();
+
+  // lead.clientId is the Snowflake teamId and lead.eventId the eventId (set by cacheSnowflakeLead).
+  const known = lead.vendeluxLeadId
+    ? await getCampaignMeetingTimes(
+        lead.clientId,
+        lead.eventId,
+        lead.vendeluxLeadId
+      ).catch(() => [] as Date[])
+    : [];
+
+  if (hasConflict(known, proposedTime)) {
+    logger.info("clicksend.webhook.reschedule_conflict", {
+      leadId: lead.id,
+      proposed: proposedTime.toISOString()
+    });
+    if (lead.status !== "in_reschedule_convo") {
+      await repo.updateLeadStatus(lead.id, "in_reschedule_convo");
+    }
+    await sendDraftReply({
+      leadId: lead.id,
+      phone: lead.phone,
+      body: buildRescheduleConflictSms(lead)
+    });
+    return;
+  }
+
+  await repo.setProposedMeetingTime(lead.id, proposedTime); // → pending_client_approval
+  logger.info("clicksend.webhook.reschedule_pending_approval", {
+    leadId: lead.id,
+    proposed: proposedTime.toISOString()
+  });
+  await sendDraftReply({
+    leadId: lead.id,
+    phone: lead.phone,
+    body: buildRescheduleHoldingSms(lead)
+  });
+}
+
 async function sendDraftReply(input: {
   leadId: string;
   phone: string;
@@ -221,6 +320,7 @@ async function sendDraftReply(input: {
   await repo.appendMessage({
     leadId: input.leadId,
     direction: "outbound",
-    text: input.body
+    text: input.body,
+    messageType: "auto_reply"
   });
 }

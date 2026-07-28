@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E85A6B"/>
+      <stop offset="100%" stop-color="#F2919C"/>
+    </linearGradient>
+  </defs>
+  <!-- Main rounded-triangle / play-button shape -->
+  <path d="M25 8 C15 8, 8 18, 12 28 L42 82 C46 90, 54 90, 58 82 L88 28 C92 18, 85 8, 75 8 Z"
+        fill="url(#vg)"/>
+  <!-- White swoosh cutting through -->
+  <path d="M20 18 C30 18, 42 30, 48 50 C52 62, 58 70, 70 72"
+        stroke="white" stroke-width="5" stroke-linecap="round" fill="none"/>
+</svg>

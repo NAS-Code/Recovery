@@ -18,11 +18,21 @@ enum LeadStatus {
   context_question
   not_interested
   uncategorized
+  canceled
+  pending_client_approval
 }
 
 enum MessageDirection {
   inbound
   outbound
+}
+
+enum MessageType {
+  initial_outreach
+  auto_reply
+  inbound_reply
+  eod_checkin
+  virtual_offer
 }
 
 model Client {
@@ -66,6 +76,8 @@ model Lead {
   fdeOwnerSlackId      String?        @map("fde_owner_slack_id")
   status               LeadStatus     @default(scheduled)
   scheduledMeetingTime DateTime?      @map("scheduled_meeting_time")
+  proposedMeetingTime  DateTime?      @map("proposed_meeting_time")
+  suppressedAt         DateTime?      @map("suppressed_at")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt      @map("updated_at")
   conversations        Conversation[]
@@ -85,7 +97,46 @@ model Conversation {
   text                 String
   timestamp            DateTime         @default(now())
   claudeClassification Json?            @map("claude_classification")
+  messageType          MessageType?     @map("message_type")
 
   @@index([leadId, timestamp])
   @@map("conversations")
+}
+
+model CampaignCredential {
+  id            String              @id @default(cuid())
+  username      String              @unique
+  passwordHash  String              @map("password_hash")
+  passwordPlain String              @map("password_plain")
+  teamId        String              @map("team_id")
+  eventId       String              @map("event_id")
+  label         String?
+  createdAt     DateTime            @default(now()) @map("created_at")
+  sessions      CampaignSession[]
+
+  @@unique([teamId, eventId])
+  @@map("campaign_credentials")
+}
+
+model CampaignSession {
+  id           String              @id @default(cuid())
+  token        String              @unique
+  credentialId String              @map("credential_id")
+  credential   CampaignCredential  @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime            @map("expires_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("campaign_sessions")
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([token])
+  @@map("admin_sessions")
 }

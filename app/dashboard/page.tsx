@@ -6,6 +6,7 @@ import { formatMeetingTime } from "@/lib/util/format";
 import { AutoRefresh } from "@/app/_components/AutoRefresh";
 import { ClientHeader } from "./_components/ClientHeader";
 import { MarkNoShowButton } from "./_components/MarkNoShowButton";
+import { RescheduleApprovalButton } from "./_components/RescheduleApprovalButton";
 import { StatusBadge } from "./_components/StatusBadge";
 
 export const dynamic = "force-dynamic";
@@ -102,14 +103,27 @@ async function DashboardBody({
                 <td className="px-4 py-3">
                   <StatusBadge status={lead.status} />
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-700">
+                <td className={`px-4 py-3 text-xs ${
+                  lead.status === "confirmed_reschedule" || lead.status === "confirmed_virtual"
+                    ? "font-medium text-green-600"
+                    : "text-slate-700"
+                }`}>
                   {formatMeetingTime(lead.scheduledMeetingTime, timezone)}
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">
                   {lead.updatedAt.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {lead.status === "scheduled" ? (
+                  {lead.status === "pending_client_approval" &&
+                  lead.proposedMeetingTime ? (
+                    <RescheduleApprovalButton
+                      leadId={lead.id}
+                      proposedLabel={formatMeetingTime(
+                        lead.proposedMeetingTime,
+                        timezone
+                      )}
+                    />
+                  ) : lead.status === "scheduled" ? (
                     <MarkNoShowButton leadId={lead.id} />
                   ) : null}
                 </td>

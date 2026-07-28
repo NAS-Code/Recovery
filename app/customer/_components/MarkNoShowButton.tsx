@@ -39,12 +39,12 @@ export function MarkNoShowButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1 md:items-end">
       <button
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="w-full md:w-auto rounded-md bg-vdx-plum px-3 py-2 md:py-1.5 text-xs font-medium text-white hover:bg-vdx-coral disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Sending…" : "Mark no-show"}
       </button>

@@ -13,7 +13,8 @@ import {
   type ConversationMessage,
   type Event,
   type Lead,
-  type LeadStatus
+  type LeadStatus,
+  type MessageType
 } from "@/lib/core/types";
 import type {
   AppendMessageInput,
@@ -37,6 +38,8 @@ function toDomainLead(row: PrismaLead): Lead {
     fdeOwnerSlackId: row.fdeOwnerSlackId,
     status: row.status as LeadStatus,
     scheduledMeetingTime: row.scheduledMeetingTime,
+    proposedMeetingTime: row.proposedMeetingTime,
+    suppressedAt: row.suppressedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -67,7 +70,8 @@ function toDomainMessage(row: PrismaConversation): ConversationMessage {
     text: row.text,
     timestamp: row.timestamp,
     claudeClassification:
-      (row.claudeClassification as ClaudeClassification | null) ?? null
+      (row.claudeClassification as ClaudeClassification | null) ?? null,
+    messageType: (row.messageType as MessageType | null) ?? null
   };
 }
 
@@ -104,7 +108,8 @@ export class PrismaLeadRepository implements LeadRepository {
         text: input.text,
         timestamp: input.timestamp ?? new Date(),
         claudeClassification:
-          (input.classification as Prisma.InputJsonValue | undefined) ?? undefined
+          (input.classification as Prisma.InputJsonValue | undefined) ?? undefined,
+        messageType: input.messageType ?? undefined
       }
     });
     return toDomainMessage(row);
@@ -131,6 +136,7 @@ export class PrismaLeadRepository implements LeadRepository {
     const rows = await prisma.lead.findMany({
       where: {
         status: { in: ACTIVE_NO_SHOW_STATUSES },
+        suppressedAt: null, // exclude silently suppressed leads
         ...(eventId ? { eventId } : {})
       },
       orderBy: { updatedAt: "desc" }
@@ -285,6 +291,53 @@ export class PrismaLeadRepository implements LeadRepository {
       orderBy: [{ updatedAt: "desc" }]
     });
     return rows.map(toDomainLead);
+  }
+
+  async suppressLead(leadId: string): Promise<void> {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { suppressedAt: new Date() }
+    });
+  }
+
+  async setProposedMeetingTime(leadId: string, time: Date): Promise<void> {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { proposedMeetingTime: time, status: "pending_client_approval" }
+    });
+  }
+
+  async approveProposedTime(leadId: string): Promise<void> {
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { proposedMeetingTime: true }
+    });
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        scheduledMeetingTime: lead?.proposedMeetingTime ?? undefined,
+        proposedMeetingTime: null,
+        status: "confirmed_reschedule"
+      }
+    });
+  }
+
+  async rejectProposedTime(leadId: string): Promise<void> {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { proposedMeetingTime: null, status: "in_reschedule_convo" }
+    });
+  }
+
+  async cancelExpiredSuppressions(olderThan: Date): Promise<number> {
+    const result = await prisma.lead.updateMany({
+      where: {
+        suppressedAt: { not: null, lte: olderThan },
+        status: { not: "canceled" }
+      },
+      data: { status: "canceled" }
+    });
+    return result.count;
   }
 
   async getMidConversationLeads(now: Date): Promise<Lead[]> {

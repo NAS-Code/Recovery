@@ -57,7 +57,8 @@ export async function runEodCheckin(
       await repo.appendMessage({
         leadId: lead.id,
         direction: "outbound",
-        text: body
+        text: body,
+        messageType: "eod_checkin"
       });
       smsSent++;
     } catch (err) {

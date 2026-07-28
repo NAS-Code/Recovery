@@ -1,13 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getClientContext } from "@/lib/auth/context";
-import { buildFirstNoShowSms } from "@/lib/core/outbound-templates";
+import { ADMIN_COOKIE_NAME, validateAdminSession } from "@/lib/auth/admin-auth";
+import { CAMPAIGN_COOKIE_NAME, validateCampaignSession } from "@/lib/auth/campaign-auth";
+import {
+  buildFirstNoShowSms,
+  buildNoShowEmail
+} from "@/lib/core/outbound-templates";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { sendSms } from "@/lib/integrations/clicksend";
+import { sendEmail } from "@/lib/integrations/instantly";
 import { getLeadRepository } from "@/lib/integrations/data";
 import {
   combineMeetingDateTime,
   getLeadById,
-  getSubCampaignContext
+  getSchedulerRebookLink,
+  getSubCampaignContext,
+  hasCrossTeamConflict
 } from "@/lib/integrations/leads.snowflake";
 import { logger } from "@/lib/util/logger";
 
@@ -21,13 +28,32 @@ export async function POST(
     params: { teamId: string; eventId: string; vendeluxLeadId: string };
   }
 ) {
-  const ctx = getClientContext();
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   const teamId = decodeURIComponent(params.teamId);
   const eventId = decodeURIComponent(params.eventId);
+
+  // Accept either admin auth OR campaign-scoped auth
+  let authorized = false;
+
+  // Try admin session first
+  const adminToken = _req.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  if (adminToken) {
+    authorized = await validateAdminSession(adminToken);
+  }
+
+  // Try campaign session (scoped to this specific campaign)
+  if (!authorized) {
+    const campaignToken = _req.cookies.get(CAMPAIGN_COOKIE_NAME)?.value;
+    if (campaignToken) {
+      const session = await validateCampaignSession(campaignToken);
+      if (session && session.teamId === teamId && session.eventId === eventId) {
+        authorized = true;
+      }
+    }
+  }
+
+  if (!authorized) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const vendeluxLeadId = decodeURIComponent(params.vendeluxLeadId);
 
   const repo = getLeadRepository();
@@ -60,6 +86,15 @@ export async function POST(
     );
   }
 
+  // Duplicate-phone guard: another campaign already has an active outreach to
+  // this number. Silently suppress — cache the lead, mark no_show for the
+  // client's dashboard, but do NOT send SMS. A cron will auto-cancel after 1h.
+  const [activeForPhone, crossTeamConflict] = await Promise.all([
+    repo.getActiveLeadByPhone(snowflakeLead.phone),
+    hasCrossTeamConflict(snowflakeLead.phone, teamId)
+  ]);
+  const isSuppressed = !!activeForPhone || crossTeamConflict;
+
   // Resolve agent persona: sub-campaign AGENT_PERSONAS → ONSITE_CONTACT_NAME → lead OCM → env var
   const agentPersonaName =
     subCampaignCtx?.agentPersonaName
@@ -84,12 +119,43 @@ export async function POST(
     scheduledMeetingTime: combineMeetingDateTime(snowflakeLead)
   });
 
+  // Mark as no_show either way so the client's dashboard looks normal
+  await repo.updateLeadStatus(lead.id, "no_show");
+
+  if (isSuppressed) {
+    // Flag for auto-cancellation — no SMS, no conversation record
+    await repo.suppressLead(lead.id);
+
+    logger.info("noshow.suppressed", {
+      leadId: lead.id,
+      vendeluxLeadId,
+      teamId: campaign.teamId,
+      eventId: campaign.eventId,
+      reason: activeForPhone ? "active_lead" : "cross_team",
+      blockedByLeadId: activeForPhone?.id ?? null
+    });
+
+    return NextResponse.json({
+      leadId: lead.id,
+      vendeluxLeadId,
+      status: "no_show",
+      sms: { messageId: "suppressed", status: "suppressed" }
+    });
+  }
+
+  // Normal path — resolve the native scheduler rebooking link (null when the
+  // campaign has no active scheduler; only native vendelux.com links are sent).
+  const rebookLink = await getSchedulerRebookLink(teamId, eventId, vendeluxLeadId);
+
   const senderCtx = {
     agentName: agentPersonaName,
     clientName: campaign.teamName
   };
 
-  const body = buildFirstNoShowSms(lead, senderCtx);
+  const body = buildFirstNoShowSms(
+    { ...lead, nativeSchedulingLink: rebookLink ?? lead.nativeSchedulingLink },
+    senderCtx
+  );
 
   let sms;
   try {
@@ -109,12 +175,49 @@ export async function POST(
     );
   }
 
-  await repo.updateLeadStatus(lead.id, "no_show");
   await repo.appendMessage({
     leadId: lead.id,
     direction: "outbound",
-    text: body
+    text: body,
+    messageType: "initial_outreach"
   });
+
+  // Best-effort one-off email alongside the SMS. Never blocks the response.
+  // Only email when we have a NATIVE scheduler rebooking link to send — the
+  // email is a one-way nudge to self-serve booking, not a reply channel.
+  const senderEmail = subCampaignCtx?.senderEmail ?? null;
+  if (lead.email && senderEmail && rebookLink) {
+    try {
+      const emailContent = buildNoShowEmail(lead, rebookLink, senderCtx);
+      const emailResult = await sendEmail({
+        eaccount: senderEmail,
+        to: lead.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        leadId: lead.id
+      });
+      logger.info("noshow.email.sent", {
+        leadId: lead.id,
+        vendeluxLeadId,
+        emailMessageId: emailResult.messageId,
+        emailStatus: emailResult.status
+      });
+    } catch (err) {
+      logger.error("noshow.email.failed", {
+        leadId: lead.id,
+        vendeluxLeadId,
+        error: err instanceof Error ? err.message : String(err)
+      });
+    }
+  } else {
+    logger.info("noshow.email.skipped", {
+      leadId: lead.id,
+      vendeluxLeadId,
+      hasEmail: !!lead.email,
+      hasSender: !!senderEmail,
+      hasLink: !!rebookLink
+    });
+  }
 
   logger.info("noshow.snowflake.marked", {
     leadId: lead.id,

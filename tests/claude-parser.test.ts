@@ -139,6 +139,8 @@ describe("buildClassifierUserMessage", () => {
     vendeluxLeadId: null,
     status: "no_show",
     scheduledMeetingTime: new Date("2026-04-29T15:00:00Z"),
+    proposedMeetingTime: null,
+    suppressedAt: null,
     createdAt: new Date("2026-04-29T12:00:00Z"),
     updatedAt: new Date("2026-04-29T15:30:00Z")
   };
@@ -150,7 +152,8 @@ describe("buildClassifierUserMessage", () => {
       direction: "outbound",
       text: "Hi Alice, sorry we missed you at 3pm. Want another slot?",
       timestamp: new Date("2026-04-29T15:30:00Z"),
-      claudeClassification: null
+      claudeClassification: null,
+      messageType: null
     },
     {
       id: "m2",
@@ -158,7 +161,8 @@ describe("buildClassifierUserMessage", () => {
       direction: "inbound",
       text: "Yeah, 4:30 works.",
       timestamp: new Date("2026-04-29T15:35:00Z"),
-      claudeClassification: null
+      claudeClassification: null,
+      messageType: null
     }
   ];
 

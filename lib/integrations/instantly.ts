@@ -18,12 +18,13 @@ function getApiKey(): string {
 }
 
 export interface SendEmailInput {
+  /** A connected sending account in the workspace (the "from" address). */
+  eaccount: string;
   to: string;
   subject: string;
-  body: string;
-  /** Optional Instantly campaign ID to attribute the send to. */
-  campaignId?: string;
-  /** Optional opaque string echoed back in webhooks. */
+  /** HTML email body. */
+  html: string;
+  /** Optional opaque string for logging correlation. */
   leadId?: string;
 }
 
@@ -32,30 +33,35 @@ export interface SendEmailResult {
   status: string;
 }
 
+/**
+ * Send a one-off email via Instantly's /emails/test endpoint. Instantly v2 has
+ * no plain transactional send — /emails/test delivers a real email to arbitrary
+ * recipients without needing a campaign. The workspace is scoped by the API key.
+ */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = getApiKey();
   const startedAt = Date.now();
 
   logger.info("instantly.send.start", {
     to: input.to,
+    eaccount: input.eaccount,
     leadId: input.leadId,
-    bodyLength: input.body.length
+    bodyLength: input.html.length
   });
 
   let response: Response;
   try {
-    response = await fetchWithTimeout(`${INSTANTLY_BASE_URL}/emails`, {
+    response = await fetchWithTimeout(`${INSTANTLY_BASE_URL}/emails/test`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        to: input.to,
+        eaccount: input.eaccount,
+        to_address_email_list: input.to,
         subject: input.subject,
-        body: input.body,
-        campaign_id: input.campaignId,
-        custom_variables: input.leadId ? { lead_id: input.leadId } : undefined
+        body: { html: input.html }
       }),
       timeoutMs: EMAIL_TIMEOUT_MS
     });
