@@ -11,9 +11,27 @@ export class InstantlyError extends Error {
   }
 }
 
-function getApiKey(): string {
-  const key = process.env.INSTANTLY_API_KEY;
-  if (!key) throw new InstantlyError("INSTANTLY_API_KEY must be set");
+/**
+ * Instantly API keys are per-workspace, and each client has their own workspace,
+ * so the key is chosen by team. Add a line here as clients are onboarded;
+ * INSTANTLY_API_KEY is the fallback for teams without a dedicated key.
+ */
+const TEAM_KEY_ENV: Record<string, string> = {
+  d3c63d41e6454ab49a345001d1ae7ca4: "Instantly_API_Key_Autostore" // AutoStore
+};
+
+function getApiKey(teamId?: string): string {
+  const envName = teamId ? TEAM_KEY_ENV[teamId] : undefined;
+  const key = (
+    (envName ? process.env[envName] : undefined) ??
+    process.env.INSTANTLY_API_KEY ??
+    ""
+  ).trim();
+  if (!key) {
+    throw new InstantlyError(
+      `No Instantly API key for team ${teamId ?? "(none)"} — set ${envName ?? "INSTANTLY_API_KEY"}`
+    );
+  }
   return key;
 }
 
@@ -26,6 +44,8 @@ export interface SendEmailInput {
   html: string;
   /** Optional opaque string for logging correlation. */
   leadId?: string;
+  /** Selects the workspace API key (see TEAM_KEY_ENV). */
+  teamId?: string;
 }
 
 export interface SendEmailResult {
@@ -39,7 +59,7 @@ export interface SendEmailResult {
  * recipients without needing a campaign. The workspace is scoped by the API key.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey(input.teamId);
   const startedAt = Date.now();
 
   logger.info("instantly.send.start", {

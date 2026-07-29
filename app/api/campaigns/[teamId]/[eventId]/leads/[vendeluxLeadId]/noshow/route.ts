@@ -194,7 +194,8 @@ export async function POST(
         to: lead.email,
         subject: emailContent.subject,
         html: emailContent.html,
-        leadId: lead.id
+        leadId: lead.id,
+        teamId: campaign.teamId
       });
       logger.info("noshow.email.sent", {
         leadId: lead.id,
