@@ -413,6 +413,46 @@ function firstSenderEmail(raw: unknown): string | null {
 }
 
 /**
+ * AGENT_PERSONAS entries look like:
+ *   { agent_emails: [...], agent_first_name: "Sloane", agent_last_name: "Royale", ... }
+ * Older/other shapes may be plain strings or carry a "name" key, so handle all three.
+ */
+function personaObjects(raw: unknown): Record<string, unknown>[] {
+  return Array.isArray(raw)
+    ? raw.filter(
+        (p): p is Record<string, unknown> => !!p && typeof p === "object"
+      )
+    : [];
+}
+
+function firstPersonaName(raw: unknown): string | null {
+  if (Array.isArray(raw)) {
+    for (const p of raw) {
+      if (typeof p === "string" && p.trim()) return p.trim();
+      if (p && typeof p === "object") {
+        const o = p as Record<string, unknown>;
+        const full = [o.agent_first_name, o.agent_last_name]
+          .map((v) => (typeof v === "string" ? v.trim() : ""))
+          .filter(Boolean)
+          .join(" ");
+        if (full) return full;
+        if (typeof o.name === "string" && o.name.trim()) return o.name.trim();
+      }
+    }
+  }
+  return null;
+}
+
+/** Sender address nested on the persona (used when SENDER_EMAIL_LIST is null). */
+function personaSenderEmail(raw: unknown): string | null {
+  for (const p of personaObjects(raw)) {
+    const found = firstSenderEmail(p.agent_emails);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
  * Fetch the sub-campaign context for a given campaign (team + event).
  * A campaign may have multiple sub-campaigns; we take the first one with
  * a non-empty AGENT_PERSONAS array, falling back to ONSITE_CONTACT_NAME.
@@ -440,17 +480,8 @@ export async function getSubCampaignContext(
   // Find the first row with a populated AGENT_PERSONAS array
   let personaName: string | null = null;
   for (const row of rows) {
-    const personas = row.AGENT_PERSONAS;
-    if (Array.isArray(personas) && personas.length > 0) {
-      // AGENT_PERSONAS can be an array of strings or objects with a "name" field
-      const first = personas[0];
-      if (typeof first === "string" && first.trim()) {
-        personaName = first.trim();
-      } else if (first && typeof first === "object" && "name" in first) {
-        personaName = String((first as { name: unknown }).name).trim() || null;
-      }
-      if (personaName) break;
-    }
+    personaName = firstPersonaName(row.AGENT_PERSONAS);
+    if (personaName) break;
   }
 
   // Fallback: ONSITE_CONTACT_NAME from the first row that has one
@@ -466,10 +497,13 @@ export async function getSubCampaignContext(
   // Use the first row for booth/booking (most recently updated sub-campaign)
   const primary = rows[0];
 
-  // Sender email: first row that has a populated SENDER_EMAIL_LIST.
+  // Sender email: prefer SENDER_EMAIL_LIST, else the persona's agent_emails
+  // (many sub-campaigns only populate the nested persona form).
   let senderEmail: string | null = null;
   for (const row of rows) {
-    senderEmail = firstSenderEmail(row.SENDER_EMAIL_LIST);
+    senderEmail =
+      firstSenderEmail(row.SENDER_EMAIL_LIST) ??
+      personaSenderEmail(row.AGENT_PERSONAS);
     if (senderEmail) break;
   }
 
