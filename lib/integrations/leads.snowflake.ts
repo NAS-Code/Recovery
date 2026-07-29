@@ -89,10 +89,60 @@ const LEAD_COLUMNS = `
   EVENT_END_DATE
 `;
 
+/**
+ * AutoStore is absent from the Sigma leads view, so its meetings come from a
+ * dedicated table instead. Same columns, different names — aliased below so the
+ * rest of the pipeline is unchanged.
+ * ponytail: one-client special case; fold back into the main query if AutoStore
+ * ever lands in the Sigma view.
+ */
+const AUTOSTORE_TEAM_ID = "d3c63d41e6454ab49a345001d1ae7ca4";
+const AUTOSTORE_TABLE =
+  "DATA_ANALYSIS_SANDBOXES.SANDBOX.DEB_NICK_HACKATHON_AUTOSTORE_DATA";
+
+/** AutoStore column names → the names the shared LeadRow mapper expects. */
+const AUTOSTORE_LEAD_COLUMNS = `
+  LEAD_ID,
+  CAMPAIGN_ID,
+  LEAD_NAME,
+  TITLE,
+  EMAIL,
+  COMPANY_NAME                       AS "COMPANY",
+  NUMBER_DIAL                        AS "NUMBER_DIALED",
+  OCM_NAME                           AS "OCM",
+  CSM_NAME                           AS "CSM",
+  LEAD_INTEREST_STATUS_NAME          AS "STATUS",
+  TRY_TO_DATE(DATE_MEETING_BOOKED_FOR) AS "DATE_MEETING_BOOKED_FOR",
+  TIME_MEETING_BOOKED_FOR,
+  MEETING_TIME_ZONE                  AS "MEETING_TIMEZONE",
+  EVENT_START_DATE,
+  EVENT_END_DATE
+`;
+
 export async function listLeadsForCampaign(
   teamId: string,
   eventId: string
 ): Promise<CampaignLead[]> {
+  if (teamId === AUTOSTORE_TEAM_ID) {
+    // Sandbox table gets rebuilt (CREATE OR REPLACE drops our SELECT grant), so
+    // render an empty campaign rather than a 500 when it's unreadable.
+    const rows = await query<LeadRow>(
+      `SELECT ${AUTOSTORE_LEAD_COLUMNS}
+       FROM ${AUTOSTORE_TABLE}
+       WHERE TEAM_ID = ?
+         AND EVENT_ID = ?
+         AND LEAD_INTEREST_STATUS_NAME = 'Meeting Booked'`,
+      [teamId, eventId]
+    ).catch((err) => {
+      logger.error("autostore.leads_unavailable", {
+        eventId,
+        error: err instanceof Error ? err.message : String(err)
+      });
+      return [] as LeadRow[];
+    });
+    return rows.map(toDomain);
+  }
+
   const rows = await query<LeadRow>(
     `SELECT ${LEAD_COLUMNS}
      FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
@@ -149,21 +199,41 @@ export async function listLeadsForEventAllTeams(
 ): Promise<EventLead[]> {
   if (teams.length === 0) return [];
   const nameByTeam = new Map(teams.map((t) => [t.teamId, t.teamName]));
-  const placeholders = teams.map(() => "?").join(", ");
-  const rows = await query<LeadRow & { TEAM_ID: string }>(
-    `SELECT ${LEAD_COLUMNS},
-       TEAM_ID
-     FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
-     WHERE EVENT_ID = ?
-       AND TEAM_ID IN (${placeholders})
-       AND STATUS = 'Meeting Booked'`,
-    [eventId, ...teams.map((t) => t.teamId)]
-  );
-  const leads = rows.map((row) => ({
+  const sigmaTeams = teams.filter((t) => t.teamId !== AUTOSTORE_TEAM_ID);
+  const hasAutostore = teams.length !== sigmaTeams.length;
+
+  const toEventLead = (row: LeadRow & { TEAM_ID: string }) => ({
     ...toDomain(row),
     teamId: row.TEAM_ID,
     teamName: nameByTeam.get(row.TEAM_ID) ?? null
-  }));
+  });
+
+  const [sigmaRows, autostoreRows] = await Promise.all([
+    sigmaTeams.length > 0
+      ? query<LeadRow & { TEAM_ID: string }>(
+          `SELECT ${LEAD_COLUMNS},
+             TEAM_ID
+           FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
+           WHERE EVENT_ID = ?
+             AND TEAM_ID IN (${sigmaTeams.map(() => "?").join(", ")})
+             AND STATUS = 'Meeting Booked'`,
+          [eventId, ...sigmaTeams.map((t) => t.teamId)]
+        )
+      : Promise.resolve([]),
+    hasAutostore
+      ? query<LeadRow & { TEAM_ID: string }>(
+          `SELECT ${AUTOSTORE_LEAD_COLUMNS},
+             TEAM_ID
+           FROM ${AUTOSTORE_TABLE}
+           WHERE EVENT_ID = ?
+             AND TEAM_ID = ?
+             AND LEAD_INTEREST_STATUS_NAME = 'Meeting Booked'`,
+          [eventId, AUTOSTORE_TEAM_ID]
+        ).catch(() => [])
+      : Promise.resolve([])
+  ]);
+
+  const leads = [...sigmaRows, ...autostoreRows].map(toEventLead);
 
   // Soonest meeting first (date+time; leads with no parseable time last),
   // then client name, then lead name as tie-breakers.
@@ -187,7 +257,18 @@ export async function getLeadById(
      LIMIT 1`,
     [leadId]
   );
-  return rows.length > 0 ? toDomain(rows[0]) : null;
+  if (rows.length > 0) return toDomain(rows[0]);
+
+  // AutoStore leads don't exist in the Sigma view — fall back to their table so
+  // mark-no-show and the Slack OCM/CSM lookup still work for them.
+  const autostore = await query<LeadRow>(
+    `SELECT ${AUTOSTORE_LEAD_COLUMNS}
+     FROM ${AUTOSTORE_TABLE}
+     WHERE LEAD_ID = ?
+     LIMIT 1`,
+    [leadId]
+  ).catch(() => []);
+  return autostore.length > 0 ? toDomain(autostore[0]) : null;
 }
 
 /**
