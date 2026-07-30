@@ -378,6 +378,44 @@ export async function getSchedulerRebookLink(
   }
 }
 
+/**
+ * The client's own (non-native) booking link per team for one event, from the
+ * free-text BOOKING_LINK a rep entered on the campaign. Used for the admin
+ * "Booking Link" button — a human judges the link, so free text is acceptable
+ * here (unlike outbound copy, which only ever gets native scheduler links).
+ */
+export async function getBookingLinksForEvent(
+  eventId: string,
+  teamIds: string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (teamIds.length === 0) return out;
+  try {
+    const rows = await query<{ TEAM_ID: string; BOOKING_LINK: string | null }>(
+      `SELECT TEAM_ID AS "TEAM_ID", BOOKING_LINK AS "BOOKING_LINK"
+       FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
+       WHERE EVENT_ID = ?
+         AND TEAM_ID IN (${teamIds.map(() => "?").join(", ")})
+         AND BOOKING_LINK IS NOT NULL
+       ORDER BY LAST_UPDATED_AT DESC`,
+      [eventId, ...teamIds]
+    );
+    for (const row of rows) {
+      const link = row.BOOKING_LINK?.trim();
+      // Only surface real URLs — the field is free text and holds junk sometimes.
+      if (link && /^https?:\/\//i.test(link) && !out.has(row.TEAM_ID)) {
+        out.set(row.TEAM_ID, link);
+      }
+    }
+  } catch (err) {
+    logger.warn("booking_links.unavailable", {
+      eventId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Sub-campaign config — agent persona, booth, booking link
 // ---------------------------------------------------------------------------
