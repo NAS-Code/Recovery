@@ -380,9 +380,13 @@ export async function getSchedulerRebookLink(
 
 /**
  * The client's own (non-native) booking link per team for one event, from the
- * free-text BOOKING_LINK a rep entered on the campaign. Used for the admin
- * "Booking Link" button — a human judges the link, so free text is acceptable
- * here (unlike outbound copy, which only ever gets native scheduler links).
+ * BOOKING_LINK field on the Vendelux campaign config.
+ *
+ * Restricted to "Early Confirmed" / "Predicted" sub-campaigns: BOOKING_LINK
+ * holds whatever CTA a sub-campaign uses, so other sub-campaigns carry
+ * unrelated links (e.g. an Executive Dinner Luma RSVP) that must never be
+ * offered as a meeting-rebooking link. Prefers Early Confirmed, then the most
+ * recently updated (NULLS LAST — a null timestamp sorts first otherwise).
  */
 export async function getBookingLinksForEvent(
   eventId: string,
@@ -397,7 +401,11 @@ export async function getBookingLinksForEvent(
        WHERE EVENT_ID = ?
          AND TEAM_ID IN (${teamIds.map(() => "?").join(", ")})
          AND BOOKING_LINK IS NOT NULL
-       ORDER BY LAST_UPDATED_AT DESC`,
+         AND (VDX_SUB_CAMPAIGN_NAME ILIKE '%early confirmed%'
+              OR VDX_SUB_CAMPAIGN_NAME ILIKE '%predicted%')
+       ORDER BY
+         IFF(VDX_SUB_CAMPAIGN_NAME ILIKE '%early confirmed%', 0, 1),
+         LAST_UPDATED_AT DESC NULLS LAST`,
       [eventId, ...teamIds]
     );
     for (const row of rows) {
