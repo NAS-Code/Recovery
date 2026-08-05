@@ -89,10 +89,60 @@ const LEAD_COLUMNS = `
   EVENT_END_DATE
 `;
 
+/**
+ * AutoStore is absent from the Sigma leads view, so its meetings come from a
+ * dedicated table instead. Same columns, different names — aliased below so the
+ * rest of the pipeline is unchanged.
+ * ponytail: one-client special case; fold back into the main query if AutoStore
+ * ever lands in the Sigma view.
+ */
+const AUTOSTORE_TEAM_ID = "d3c63d41e6454ab49a345001d1ae7ca4";
+const AUTOSTORE_TABLE =
+  "DATA_ANALYSIS_SANDBOXES.SANDBOX.DEB_NICK_HACKATHON_AUTOSTORE_DATA";
+
+/** AutoStore column names → the names the shared LeadRow mapper expects. */
+const AUTOSTORE_LEAD_COLUMNS = `
+  LEAD_ID,
+  CAMPAIGN_ID,
+  LEAD_NAME,
+  TITLE,
+  EMAIL,
+  COMPANY_NAME                       AS "COMPANY",
+  NUMBER_DIAL                        AS "NUMBER_DIALED",
+  OCM_NAME                           AS "OCM",
+  CSM_NAME                           AS "CSM",
+  LEAD_INTEREST_STATUS_NAME          AS "STATUS",
+  TRY_TO_DATE(DATE_MEETING_BOOKED_FOR) AS "DATE_MEETING_BOOKED_FOR",
+  TIME_MEETING_BOOKED_FOR,
+  MEETING_TIME_ZONE                  AS "MEETING_TIMEZONE",
+  EVENT_START_DATE,
+  EVENT_END_DATE
+`;
+
 export async function listLeadsForCampaign(
   teamId: string,
   eventId: string
 ): Promise<CampaignLead[]> {
+  if (teamId === AUTOSTORE_TEAM_ID) {
+    // Sandbox table gets rebuilt (CREATE OR REPLACE drops our SELECT grant), so
+    // render an empty campaign rather than a 500 when it's unreadable.
+    const rows = await query<LeadRow>(
+      `SELECT ${AUTOSTORE_LEAD_COLUMNS}
+       FROM ${AUTOSTORE_TABLE}
+       WHERE TEAM_ID = ?
+         AND EVENT_ID = ?
+         AND LEAD_INTEREST_STATUS_NAME = 'Meeting Booked'`,
+      [teamId, eventId]
+    ).catch((err) => {
+      logger.error("autostore.leads_unavailable", {
+        eventId,
+        error: err instanceof Error ? err.message : String(err)
+      });
+      return [] as LeadRow[];
+    });
+    return rows.map(toDomain);
+  }
+
   const rows = await query<LeadRow>(
     `SELECT ${LEAD_COLUMNS}
      FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
@@ -149,21 +199,41 @@ export async function listLeadsForEventAllTeams(
 ): Promise<EventLead[]> {
   if (teams.length === 0) return [];
   const nameByTeam = new Map(teams.map((t) => [t.teamId, t.teamName]));
-  const placeholders = teams.map(() => "?").join(", ");
-  const rows = await query<LeadRow & { TEAM_ID: string }>(
-    `SELECT ${LEAD_COLUMNS},
-       TEAM_ID
-     FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
-     WHERE EVENT_ID = ?
-       AND TEAM_ID IN (${placeholders})
-       AND STATUS = 'Meeting Booked'`,
-    [eventId, ...teams.map((t) => t.teamId)]
-  );
-  const leads = rows.map((row) => ({
+  const sigmaTeams = teams.filter((t) => t.teamId !== AUTOSTORE_TEAM_ID);
+  const hasAutostore = teams.length !== sigmaTeams.length;
+
+  const toEventLead = (row: LeadRow & { TEAM_ID: string }) => ({
     ...toDomain(row),
     teamId: row.TEAM_ID,
     teamName: nameByTeam.get(row.TEAM_ID) ?? null
-  }));
+  });
+
+  const [sigmaRows, autostoreRows] = await Promise.all([
+    sigmaTeams.length > 0
+      ? query<LeadRow & { TEAM_ID: string }>(
+          `SELECT ${LEAD_COLUMNS},
+             TEAM_ID
+           FROM DATA_OPS.SIGMA.SLOANE_LEADS_WITH_POSITIVE_STATUS
+           WHERE EVENT_ID = ?
+             AND TEAM_ID IN (${sigmaTeams.map(() => "?").join(", ")})
+             AND STATUS = 'Meeting Booked'`,
+          [eventId, ...sigmaTeams.map((t) => t.teamId)]
+        )
+      : Promise.resolve([]),
+    hasAutostore
+      ? query<LeadRow & { TEAM_ID: string }>(
+          `SELECT ${AUTOSTORE_LEAD_COLUMNS},
+             TEAM_ID
+           FROM ${AUTOSTORE_TABLE}
+           WHERE EVENT_ID = ?
+             AND TEAM_ID = ?
+             AND LEAD_INTEREST_STATUS_NAME = 'Meeting Booked'`,
+          [eventId, AUTOSTORE_TEAM_ID]
+        ).catch(() => [])
+      : Promise.resolve([])
+  ]);
+
+  const leads = [...sigmaRows, ...autostoreRows].map(toEventLead);
 
   // Soonest meeting first (date+time; leads with no parseable time last),
   // then client name, then lead name as tie-breakers.
@@ -187,7 +257,18 @@ export async function getLeadById(
      LIMIT 1`,
     [leadId]
   );
-  return rows.length > 0 ? toDomain(rows[0]) : null;
+  if (rows.length > 0) return toDomain(rows[0]);
+
+  // AutoStore leads don't exist in the Sigma view — fall back to their table so
+  // mark-no-show and the Slack OCM/CSM lookup still work for them.
+  const autostore = await query<LeadRow>(
+    `SELECT ${AUTOSTORE_LEAD_COLUMNS}
+     FROM ${AUTOSTORE_TABLE}
+     WHERE LEAD_ID = ?
+     LIMIT 1`,
+    [leadId]
+  ).catch(() => []);
+  return autostore.length > 0 ? toDomain(autostore[0]) : null;
 }
 
 /**
@@ -252,6 +333,32 @@ export type CampaignLeadConcierge = CampaignLead & {
   concierge: { status: LeadStatus; scheduledMeetingTime: Date | null } | null;
 };
 
+/**
+ * The client's Instantly sub-workspace id for a team, used as the
+ * `x-as-workspace` header so the agency key sends from that client's workspace.
+ */
+export async function getTeamInstantlyWorkspaceId(
+  teamId: string
+): Promise<string | null> {
+  try {
+    const rows = await query<{ W: string | null }>(
+      `SELECT INSTANTLY_WORKSPACE_ID AS "W"
+       FROM SILVER.SLOANE_V2.V_TEAM_DETAILS
+       WHERE TEAM_ID = ?
+       LIMIT 1`,
+      [teamId]
+    );
+    const w = rows[0]?.W?.trim();
+    return w || null;
+  } catch (err) {
+    logger.warn("instantly.workspace_lookup_failed", {
+      teamId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Native scheduler rebooking link
 // ---------------------------------------------------------------------------
@@ -297,6 +404,52 @@ export async function getSchedulerRebookLink(
   }
 }
 
+/**
+ * The client's own (non-native) booking link per team for one event, from the
+ * BOOKING_LINK field on the Vendelux campaign config.
+ *
+ * Restricted to "Early Confirmed" / "Predicted" sub-campaigns: BOOKING_LINK
+ * holds whatever CTA a sub-campaign uses, so other sub-campaigns carry
+ * unrelated links (e.g. an Executive Dinner Luma RSVP) that must never be
+ * offered as a meeting-rebooking link. Prefers Early Confirmed, then the most
+ * recently updated (NULLS LAST — a null timestamp sorts first otherwise).
+ */
+export async function getBookingLinksForEvent(
+  eventId: string,
+  teamIds: string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (teamIds.length === 0) return out;
+  try {
+    const rows = await query<{ TEAM_ID: string; BOOKING_LINK: string | null }>(
+      `SELECT TEAM_ID AS "TEAM_ID", BOOKING_LINK AS "BOOKING_LINK"
+       FROM SILVER.SLOANE_V2.V_VDX_SUB_CAMPAIGN_CONFIG
+       WHERE EVENT_ID = ?
+         AND TEAM_ID IN (${teamIds.map(() => "?").join(", ")})
+         AND BOOKING_LINK IS NOT NULL
+         AND (VDX_SUB_CAMPAIGN_NAME ILIKE '%early confirmed%'
+              OR VDX_SUB_CAMPAIGN_NAME ILIKE '%predicted%')
+       ORDER BY
+         IFF(VDX_SUB_CAMPAIGN_NAME ILIKE '%early confirmed%', 0, 1),
+         LAST_UPDATED_AT DESC NULLS LAST`,
+      [eventId, ...teamIds]
+    );
+    for (const row of rows) {
+      const link = row.BOOKING_LINK?.trim();
+      // Only surface real URLs — the field is free text and holds junk sometimes.
+      if (link && /^https?:\/\//i.test(link) && !out.has(row.TEAM_ID)) {
+        out.set(row.TEAM_ID, link);
+      }
+    }
+  } catch (err) {
+    logger.warn("booking_links.unavailable", {
+      eventId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Sub-campaign config — agent persona, booth, booking link
 // ---------------------------------------------------------------------------
@@ -332,6 +485,46 @@ function firstSenderEmail(raw: unknown): string | null {
 }
 
 /**
+ * AGENT_PERSONAS entries look like:
+ *   { agent_emails: [...], agent_first_name: "Sloane", agent_last_name: "Royale", ... }
+ * Older/other shapes may be plain strings or carry a "name" key, so handle all three.
+ */
+function personaObjects(raw: unknown): Record<string, unknown>[] {
+  return Array.isArray(raw)
+    ? raw.filter(
+        (p): p is Record<string, unknown> => !!p && typeof p === "object"
+      )
+    : [];
+}
+
+function firstPersonaName(raw: unknown): string | null {
+  if (Array.isArray(raw)) {
+    for (const p of raw) {
+      if (typeof p === "string" && p.trim()) return p.trim();
+      if (p && typeof p === "object") {
+        const o = p as Record<string, unknown>;
+        const full = [o.agent_first_name, o.agent_last_name]
+          .map((v) => (typeof v === "string" ? v.trim() : ""))
+          .filter(Boolean)
+          .join(" ");
+        if (full) return full;
+        if (typeof o.name === "string" && o.name.trim()) return o.name.trim();
+      }
+    }
+  }
+  return null;
+}
+
+/** Sender address nested on the persona (used when SENDER_EMAIL_LIST is null). */
+function personaSenderEmail(raw: unknown): string | null {
+  for (const p of personaObjects(raw)) {
+    const found = firstSenderEmail(p.agent_emails);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
  * Fetch the sub-campaign context for a given campaign (team + event).
  * A campaign may have multiple sub-campaigns; we take the first one with
  * a non-empty AGENT_PERSONAS array, falling back to ONSITE_CONTACT_NAME.
@@ -359,17 +552,8 @@ export async function getSubCampaignContext(
   // Find the first row with a populated AGENT_PERSONAS array
   let personaName: string | null = null;
   for (const row of rows) {
-    const personas = row.AGENT_PERSONAS;
-    if (Array.isArray(personas) && personas.length > 0) {
-      // AGENT_PERSONAS can be an array of strings or objects with a "name" field
-      const first = personas[0];
-      if (typeof first === "string" && first.trim()) {
-        personaName = first.trim();
-      } else if (first && typeof first === "object" && "name" in first) {
-        personaName = String((first as { name: unknown }).name).trim() || null;
-      }
-      if (personaName) break;
-    }
+    personaName = firstPersonaName(row.AGENT_PERSONAS);
+    if (personaName) break;
   }
 
   // Fallback: ONSITE_CONTACT_NAME from the first row that has one
@@ -385,10 +569,13 @@ export async function getSubCampaignContext(
   // Use the first row for booth/booking (most recently updated sub-campaign)
   const primary = rows[0];
 
-  // Sender email: first row that has a populated SENDER_EMAIL_LIST.
+  // Sender email: prefer SENDER_EMAIL_LIST, else the persona's agent_emails
+  // (many sub-campaigns only populate the nested persona form).
   let senderEmail: string | null = null;
   for (const row of rows) {
-    senderEmail = firstSenderEmail(row.SENDER_EMAIL_LIST);
+    senderEmail =
+      firstSenderEmail(row.SENDER_EMAIL_LIST) ??
+      personaSenderEmail(row.AGENT_PERSONAS);
     if (senderEmail) break;
   }
 

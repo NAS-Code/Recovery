@@ -92,6 +92,17 @@ export class PrismaLeadRepository implements LeadRepository {
     return row ? toDomainLead(row) : null;
   }
 
+  async getActiveLeadByEmail(email: string): Promise<Lead | null> {
+    const row = await prisma.lead.findFirst({
+      where: {
+        email: { equals: email, mode: "insensitive" },
+        status: { in: ACTIVE_NO_SHOW_STATUSES }
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+    return row ? toDomainLead(row) : null;
+  }
+
   async getConversationHistory(leadId: string): Promise<ConversationMessage[]> {
     const rows = await prisma.conversation.findMany({
       where: { leadId },

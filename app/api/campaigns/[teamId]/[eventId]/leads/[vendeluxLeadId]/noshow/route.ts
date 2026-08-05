@@ -14,6 +14,7 @@ import {
   getLeadById,
   getSchedulerRebookLink,
   getSubCampaignContext,
+  getTeamInstantlyWorkspaceId,
   hasCrossTeamConflict
 } from "@/lib/integrations/leads.snowflake";
 import { logger } from "@/lib/util/logger";
@@ -188,13 +189,15 @@ export async function POST(
   const senderEmail = subCampaignCtx?.senderEmail ?? null;
   if (lead.email && senderEmail && rebookLink) {
     try {
+      const workspaceId = await getTeamInstantlyWorkspaceId(campaign.teamId);
       const emailContent = buildNoShowEmail(lead, rebookLink, senderCtx);
       const emailResult = await sendEmail({
         eaccount: senderEmail,
         to: lead.email,
         subject: emailContent.subject,
         html: emailContent.html,
-        leadId: lead.id
+        leadId: lead.id,
+        workspaceId
       });
       logger.info("noshow.email.sent", {
         leadId: lead.id,

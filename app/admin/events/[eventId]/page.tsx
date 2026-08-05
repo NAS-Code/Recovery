@@ -7,6 +7,7 @@ import { getCampaignRepository } from "@/lib/integrations/campaigns";
 import { getLeadRepository } from "@/lib/integrations/data";
 import {
   combineMeetingDateTime,
+  getBookingLinksForEvent,
   listLeadsForEventAllTeams,
   vendeluxStatusToBadge
 } from "@/lib/integrations/leads.snowflake";
@@ -57,9 +58,13 @@ export default async function EventMeetingsPage({
     eventId,
     eventCampaigns.map((c) => ({ teamId: c.teamId, teamName: c.teamName }))
   );
-  const states = await getLeadRepository().getLeadStatesByVendeluxIds(
-    leads.map((l) => l.leadId)
-  );
+  const [states, bookingLinks] = await Promise.all([
+    getLeadRepository().getLeadStatesByVendeluxIds(leads.map((l) => l.leadId)),
+    getBookingLinksForEvent(
+      eventId,
+      eventCampaigns.map((c) => c.teamId)
+    )
+  ]);
 
   const eventName = eventCampaigns[0]?.eventName ?? null;
   const eventStart = leads.find((l) => l.eventStartDate)?.eventStartDate ?? null;
@@ -170,16 +175,37 @@ export default async function EventMeetingsPage({
                             : "—"}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        <ManualRebookButton
-                          leadId={concierge?.id ?? null}
-                          disabledReason={
-                            !concierge
-                              ? "Lead is not in the concierge system (not marked no-show)"
-                              : ACTIVE_NO_SHOW_STATUSES.includes(concierge.status)
-                                ? null
-                                : `Lead is ${concierge.status.replace(/_/g, " ")} — nothing to rebook`
-                          }
-                        />
+                        <div className="flex items-start justify-end gap-2">
+                          {bookingLinks.get(lead.teamId) ? (
+                            <a
+                              href={bookingLinks.get(lead.teamId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-md border border-vdx-plum px-3 py-1.5 text-xs font-medium text-vdx-plum hover:bg-vdx-cream"
+                            >
+                              Booking Link
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="No booking link configured for this campaign"
+                              className="shrink-0 cursor-not-allowed rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400"
+                            >
+                              Booking Link
+                            </button>
+                          )}
+                          <ManualRebookButton
+                            leadId={concierge?.id ?? null}
+                            disabledReason={
+                              !concierge
+                                ? "Lead is not in the concierge system (not marked no-show)"
+                                : ACTIVE_NO_SHOW_STATUSES.includes(concierge.status)
+                                  ? null
+                                  : `Lead is ${concierge.status.replace(/_/g, " ")} — nothing to rebook`
+                            }
+                          />
+                        </div>
                       </td>
                     </tr>
                   );

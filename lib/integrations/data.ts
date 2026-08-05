@@ -45,6 +45,8 @@ export interface CacheSnowflakeLeadInput {
 export interface LeadRepository {
   getLead(id: string): Promise<Lead | null>;
   getActiveLeadByPhone(phone: string): Promise<Lead | null>;
+  /** Active no-show lead by email — used to match native scheduler bookings. */
+  getActiveLeadByEmail(email: string): Promise<Lead | null>;
   getConversationHistory(leadId: string): Promise<ConversationMessage[]>;
   appendMessage(input: AppendMessageInput): Promise<ConversationMessage>;
   updateLeadStatus(leadId: string, status: LeadStatus): Promise<void>;
