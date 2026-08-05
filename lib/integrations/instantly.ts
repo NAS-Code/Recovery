@@ -12,25 +12,19 @@ export class InstantlyError extends Error {
 }
 
 /**
- * Instantly_API_Key_Full_Email_Create can send across every workspace, so it's
- * the default. TEAM_KEY_ENV stays as a per-team override for any client that
- * ever needs its own workspace key (Instantly keys are workspace-scoped).
+ * The parent (agency) key authenticates every send; the target client's
+ * workspace is selected per-request via the `x-as-workspace` header (see
+ * Vendelux/data instantly_service_base.py). One key covers all sub-workspaces.
  */
-const TEAM_KEY_ENV: Record<string, string> = {
-  d3c63d41e6454ab49a345001d1ae7ca4: "Instantly_API_Key_Autostore" // AutoStore
-};
-
-function getApiKey(teamId?: string): string {
-  const envName = teamId ? TEAM_KEY_ENV[teamId] : undefined;
+function getApiKey(): string {
   const key = (
-    (envName ? process.env[envName] : undefined) ??
     process.env.Instantly_API_Key_Full_Email_Create ??
     process.env.INSTANTLY_API_KEY ??
     ""
   ).trim();
   if (!key) {
     throw new InstantlyError(
-      `No Instantly API key available for team ${teamId ?? "(none)"} — set Instantly_API_Key_Full_Email_Create`
+      "No Instantly API key — set Instantly_API_Key_Full_Email_Create"
     );
   }
   return key;
@@ -45,8 +39,8 @@ export interface SendEmailInput {
   html: string;
   /** Optional opaque string for logging correlation. */
   leadId?: string;
-  /** Selects the workspace API key (see TEAM_KEY_ENV). */
-  teamId?: string;
+  /** Client's Instantly sub-workspace id — routes the send via x-as-workspace. */
+  workspaceId?: string | null;
 }
 
 export interface SendEmailResult {
@@ -57,27 +51,32 @@ export interface SendEmailResult {
 /**
  * Send a one-off email via Instantly's /emails/test endpoint. Instantly v2 has
  * no plain transactional send — /emails/test delivers a real email to arbitrary
- * recipients without needing a campaign. The workspace is scoped by the API key.
+ * recipients without needing a campaign. The agency key + x-as-workspace header
+ * scopes the send to the client's workspace.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const apiKey = getApiKey(input.teamId);
+  const apiKey = getApiKey();
   const startedAt = Date.now();
 
   logger.info("instantly.send.start", {
     to: input.to,
     eaccount: input.eaccount,
+    workspaceId: input.workspaceId ?? null,
     leadId: input.leadId,
     bodyLength: input.html.length
   });
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json"
+  };
+  if (input.workspaceId) headers["x-as-workspace"] = input.workspaceId;
 
   let response: Response;
   try {
     response = await fetchWithTimeout(`${INSTANTLY_BASE_URL}/emails/test`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify({
         eaccount: input.eaccount,
         to_address_email_list: input.to,

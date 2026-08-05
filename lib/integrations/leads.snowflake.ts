@@ -333,6 +333,32 @@ export type CampaignLeadConcierge = CampaignLead & {
   concierge: { status: LeadStatus; scheduledMeetingTime: Date | null } | null;
 };
 
+/**
+ * The client's Instantly sub-workspace id for a team, used as the
+ * `x-as-workspace` header so the agency key sends from that client's workspace.
+ */
+export async function getTeamInstantlyWorkspaceId(
+  teamId: string
+): Promise<string | null> {
+  try {
+    const rows = await query<{ W: string | null }>(
+      `SELECT INSTANTLY_WORKSPACE_ID AS "W"
+       FROM SILVER.SLOANE_V2.V_TEAM_DETAILS
+       WHERE TEAM_ID = ?
+       LIMIT 1`,
+      [teamId]
+    );
+    const w = rows[0]?.W?.trim();
+    return w || null;
+  } catch (err) {
+    logger.warn("instantly.workspace_lookup_failed", {
+      teamId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Native scheduler rebooking link
 // ---------------------------------------------------------------------------
