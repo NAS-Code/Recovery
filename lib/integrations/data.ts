@@ -52,6 +52,9 @@ export interface LeadRepository {
   updateLeadStatus(leadId: string, status: LeadStatus): Promise<void>;
   updateScheduledMeetingTime(leadId: string, time: Date): Promise<void>;
   getActiveNoShows(eventId?: string): Promise<Lead[]>;
+  /** Every lead currently in `no_show` status, across all clients/events. */
+  getNoShowLeads(): Promise<Lead[]>;
+  getEventsByIds(ids: string[]): Promise<Event[]>;
   getFdeOwner(leadId: string): Promise<string | null>;
   getMidConversationLeads(now: Date): Promise<Lead[]>;
   getCurrentEvent(now?: Date): Promise<Event | null>;

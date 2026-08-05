@@ -75,6 +75,12 @@ export default async function CampaignsPage() {
             </div>
             <div className="flex shrink-0 gap-2">
               <Link
+                href="/admin/callers"
+                className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
+              >
+                Caller View
+              </Link>
+              <Link
                 href="/admin/events"
                 className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
               >
