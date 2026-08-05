@@ -12,9 +12,9 @@ export class InstantlyError extends Error {
 }
 
 /**
- * Instantly API keys are per-workspace, and each client has their own workspace,
- * so the key is chosen by team. Add a line here as clients are onboarded;
- * INSTANTLY_API_KEY is the fallback for teams without a dedicated key.
+ * Instantly_API_Key_Full_Email_Create can send across every workspace, so it's
+ * the default. TEAM_KEY_ENV stays as a per-team override for any client that
+ * ever needs its own workspace key (Instantly keys are workspace-scoped).
  */
 const TEAM_KEY_ENV: Record<string, string> = {
   d3c63d41e6454ab49a345001d1ae7ca4: "Instantly_API_Key_Autostore" // AutoStore
@@ -24,12 +24,13 @@ function getApiKey(teamId?: string): string {
   const envName = teamId ? TEAM_KEY_ENV[teamId] : undefined;
   const key = (
     (envName ? process.env[envName] : undefined) ??
+    process.env.Instantly_API_Key_Full_Email_Create ??
     process.env.INSTANTLY_API_KEY ??
     ""
   ).trim();
   if (!key) {
     throw new InstantlyError(
-      `No Instantly API key for team ${teamId ?? "(none)"} — set ${envName ?? "INSTANTLY_API_KEY"}`
+      `No Instantly API key available for team ${teamId ?? "(none)"} — set Instantly_API_Key_Full_Email_Create`
     );
   }
   return key;
