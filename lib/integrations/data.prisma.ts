@@ -155,6 +155,20 @@ export class PrismaLeadRepository implements LeadRepository {
     return rows.map(toDomainLead);
   }
 
+  async getNoShowLeads(): Promise<Lead[]> {
+    const rows = await prisma.lead.findMany({
+      where: { status: "no_show", suppressedAt: null },
+      orderBy: { scheduledMeetingTime: "asc" }
+    });
+    return rows.map(toDomainLead);
+  }
+
+  async getEventsByIds(ids: string[]): Promise<Event[]> {
+    if (ids.length === 0) return [];
+    const rows = await prisma.event.findMany({ where: { id: { in: ids } } });
+    return rows.map(toDomainEvent);
+  }
+
   async getFdeOwner(leadId: string): Promise<string | null> {
     const row = await prisma.lead.findUnique({
       where: { id: leadId },
