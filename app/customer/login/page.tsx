@@ -54,7 +54,7 @@ function LoginForm() {
             priority
           />
           <h1 className="mt-4 text-xl font-bold tracking-tight text-slate-900">
-            Vendelux Concierge
+            Vendelux Automated Concierge
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Sign in to view your campaign dashboard

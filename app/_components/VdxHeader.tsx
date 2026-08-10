@@ -25,7 +25,7 @@ export function VdxHeader({ rightSlot }: VdxHeaderProps) {
 
         {/* Tool name */}
         <span className="text-sm font-medium tracking-wide text-white/90">
-          Concierge
+          AUTOMATED Concierge
         </span>
 
         {/* Right slot */}
