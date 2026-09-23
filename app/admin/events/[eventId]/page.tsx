@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { VdxHeader } from "@/app/_components/VdxHeader";
+import { AppHeader } from "@/app/_components/AppHeader";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
 import { ACTIVE_NO_SHOW_STATUSES } from "@/lib/core/types";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
@@ -9,7 +9,7 @@ import {
   combineMeetingDateTime,
   getBookingLinksForEvent,
   listLeadsForEventAllTeams,
-  vendeluxStatusToBadge
+  sourceStatusToBadge
 } from "@/lib/integrations/leads.snowflake";
 import { formatMeetingTime } from "@/lib/util/format";
 import { StatusBadge } from "@/app/dashboard/_components/StatusBadge";
@@ -59,7 +59,7 @@ export default async function EventMeetingsPage({
     eventCampaigns.map((c) => ({ teamId: c.teamId, teamName: c.teamName }))
   );
   const [states, bookingLinks] = await Promise.all([
-    getLeadRepository().getLeadStatesByVendeluxIds(leads.map((l) => l.leadId)),
+    getLeadRepository().getLeadStatesBySourceIds(leads.map((l) => l.leadId)),
     getBookingLinksForEvent(
       eventId,
       eventCampaigns.map((c) => c.teamId)
@@ -78,11 +78,11 @@ export default async function EventMeetingsPage({
 
   return (
     <>
-      <VdxHeader rightSlot={<LogoutButton />} />
+      <AppHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
         <Link
           href="/admin/events"
-          className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
+          className="text-xs text-brand-primary/60 hover:text-brand-accent hover:underline"
         >
           &larr; All events
         </Link>
@@ -104,7 +104,7 @@ export default async function EventMeetingsPage({
         ) : (
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-vdx-cream text-left text-[11px] uppercase tracking-wider text-slate-600">
+              <thead className="bg-brand-surface text-left text-[11px] uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Client</th>
                   <th className="px-5 py-3 font-semibold">Lead</th>
@@ -126,7 +126,7 @@ export default async function EventMeetingsPage({
                   return (
                     <tr
                       key={lead.leadId}
-                      className="transition-colors hover:bg-vdx-cream/40"
+                      className="transition-colors hover:bg-brand-surface/40"
                     >
                       <td className="px-5 py-3.5">
                         {/* Plain <a>: full navigation, immune to the AutoRefresh
@@ -134,7 +134,7 @@ export default async function EventMeetingsPage({
                             while the (slow, Snowflake-backed) target renders. */}
                         <a
                           href={`/customer/${encodeURIComponent(lead.teamId)}/${encodeURIComponent(eventId)}`}
-                          className="font-medium text-vdx-plum hover:text-vdx-coral hover:underline"
+                          className="font-medium text-brand-primary hover:text-brand-accent hover:underline"
                         >
                           {lead.teamName ?? "—"}
                         </a>
@@ -156,7 +156,7 @@ export default async function EventMeetingsPage({
                           <StatusBadge status={concierge.status} />
                         ) : (
                           <span className="text-slate-700">
-                            {vendeluxStatusToBadge(lead.vendeluxStatus)}
+                            {sourceStatusToBadge(lead.sourceStatus)}
                           </span>
                         )}
                       </td>
@@ -181,7 +181,7 @@ export default async function EventMeetingsPage({
                               href={bookingLinks.get(lead.teamId)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="shrink-0 rounded-md border border-vdx-plum px-3 py-1.5 text-xs font-medium text-vdx-plum hover:bg-vdx-cream"
+                              className="shrink-0 rounded-md border border-brand-primary px-3 py-1.5 text-xs font-medium text-brand-primary hover:bg-brand-surface"
                             >
                               Booking Link
                             </a>

@@ -1,22 +1,23 @@
 /**
- * Vendelux-branded header bar matching the internal tool style.
- * Dark plum background, logo on left, tool name center, right slot configurable.
+ * Branded header bar matching the internal tool style.
+ * Dark brand background, logo on left, tool name center, right slot configurable.
  */
 import Image from "next/image";
 
-interface VdxHeaderProps {
+interface AppHeaderProps {
   /** Optional React node to render on the right side. Defaults to "Internal Tool" badge. */
   rightSlot?: React.ReactNode;
 }
 
-export function VdxHeader({ rightSlot }: VdxHeaderProps) {
+export function AppHeader({ rightSlot }: AppHeaderProps) {
   return (
-    <header className="bg-vdx-plum">
+    <header className="bg-brand-primary">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         {/* Logo mark */}
         <Image
-          src="/vdx-logo.png"
-          alt="Vendelux"
+          src="/logo.svg"
+          unoptimized
+          alt="Concierge"
           width={28}
           height={28}
           className="h-7 w-7"

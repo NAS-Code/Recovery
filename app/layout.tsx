@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Vendelux Concierge",
+  title: "Automated Concierge",
   description: "No-show recovery and meeting management"
 };
 

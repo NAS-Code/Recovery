@@ -26,7 +26,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="rounded bg-vdx-plum/10 px-2 py-0.5 text-[11px] font-medium text-vdx-plum transition-colors hover:bg-vdx-coral/20 hover:text-vdx-coral"
+      className="rounded bg-brand-primary/10 px-2 py-0.5 text-[11px] font-medium text-brand-primary transition-colors hover:bg-brand-accent/20 hover:text-brand-accent"
       title={`Copy ${label}`}
     >
       {copied ? "Copied!" : `Copy ${label}`}
@@ -59,7 +59,7 @@ export function CampaignsTable({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter by team or event…"
-          className="w-full max-w-md rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+          className="w-full max-w-md rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
           autoFocus
         />
         <span className="text-xs text-slate-500">
@@ -76,7 +76,7 @@ export function CampaignsTable({
           {/* ---- Desktop table (hidden on mobile) ---- */}
           <div className="hidden md:block overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-vdx-cream text-left text-[11px] uppercase tracking-wider text-slate-600">
+              <thead className="bg-brand-surface text-left text-[11px] uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Team</th>
                   <th className="px-5 py-3 font-semibold">Event</th>
@@ -92,7 +92,7 @@ export function CampaignsTable({
                   return (
                     <tr
                       key={`${c.teamId}_${c.eventId}`}
-                      className="transition-colors hover:bg-vdx-cream/40"
+                      className="transition-colors hover:bg-brand-surface/40"
                     >
                       <td className="px-5 py-3.5 font-medium text-slate-900">
                         {c.teamName}
@@ -100,7 +100,7 @@ export function CampaignsTable({
                       <td className="px-5 py-3.5">
                         <Link
                           href={dashboardUrl}
-                          className="font-medium text-vdx-plum hover:text-vdx-coral hover:underline"
+                          className="font-medium text-brand-primary hover:text-brand-accent hover:underline"
                         >
                           {c.eventName}
                         </Link>
@@ -172,7 +172,7 @@ export function CampaignsTable({
                   {/* Event link */}
                   <Link
                     href={dashboardUrl}
-                    className="mt-1 block font-medium text-vdx-plum hover:text-vdx-coral hover:underline"
+                    className="mt-1 block font-medium text-brand-primary hover:text-brand-accent hover:underline"
                   >
                     {c.eventName}
                   </Link>

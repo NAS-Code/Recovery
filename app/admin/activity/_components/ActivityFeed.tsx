@@ -90,7 +90,7 @@ function CategoryBadge({ classification }: { classification: any }) {
   const cat = classification.category as string;
   const label = cat.replace(/_/g, " ");
   return (
-    <span className="rounded bg-vdx-plum/10 px-1.5 py-0.5 text-[10px] font-medium text-vdx-plum">
+    <span className="rounded bg-brand-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-brand-primary">
       {label}
     </span>
   );
@@ -146,13 +146,13 @@ export function ActivityFeed({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search messages, leads, companies…"
-          className="w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+          className="w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
         />
 
         <select
           value={eventFilter}
           onChange={(e) => setEventFilter(e.target.value)}
-          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
         >
           <option value="all">All events</option>
           {events.map((e) => (
@@ -165,7 +165,7 @@ export function ActivityFeed({
         <select
           value={directionFilter}
           onChange={(e) => setDirectionFilter(e.target.value)}
-          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
         >
           <option value="all">All directions</option>
           <option value="outbound">Outbound only</option>
@@ -175,7 +175,7 @@ export function ActivityFeed({
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
         >
           <option value="all">All types</option>
           <option value="initial_outreach">Initial Outreach</option>
@@ -214,7 +214,7 @@ export function ActivityFeed({
                   <span
                     className={`shrink-0 text-xs font-bold ${
                       m.direction === "outbound"
-                        ? "text-vdx-coral"
+                        ? "text-brand-accent"
                         : "text-blue-600"
                     }`}
                     title={
@@ -249,7 +249,7 @@ export function ActivityFeed({
 
               {/* Bottom row: event + status + classification */}
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                <span className="rounded bg-vdx-cream px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                <span className="rounded bg-brand-surface px-2 py-0.5 text-[10px] font-medium text-slate-600">
                   {m.teamName} — {m.eventName}
                 </span>
 

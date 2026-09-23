@@ -1,39 +1,29 @@
 # AGENTS.md
 
 Guidance for Claude Code, Cursor, and other agents working in this repo.
-
-This repo is a **stack outlier** within Vendelux — Next.js + TypeScript +
-Postgres + Vercel, where the main platform is Django + MySQL + ECS. See
-[docs/vendelux-integration.md](docs/vendelux-integration.md) for why and how
-that's being reconciled. **Cross-cutting Vendelux conventions live in the
-[events repo's AGENTS.md](https://github.com/Vendelux/events/blob/dev/AGENTS.md);
-inherit those by default.** This file documents only what's specific to
-concierge.
+Architecture overview: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Stack-specific conventions
 
-- **Package manager:** `npm` for now. The main Vendelux frontend uses `pnpm`;
-  we'll align before any UI port. Don't introduce yarn or bun.
-- **Node version:** 22 LTS, pinned via the GitHub Actions workflow. Local dev
-  on the Windows ARM64 machine uses WSL Ubuntu — see [README.md](README.md).
+- **Package manager:** `npm`. Don't introduce yarn, pnpm or bun.
+- **Node version:** 22 LTS, pinned via the GitHub Actions workflow. On
+  Windows ARM64 use WSL2 — see [README.md](README.md).
 - **Tests:** Vitest. Pure-logic tests only — no DB, no network. Anything
-  that needs a DB or external service is exercised via the dev server +
-  the smoke scripts in `scripts/`.
+  that needs a DB or external service is exercised via the dev server and
+  the scripts in `scripts/`.
 
 ## Architectural rules
 
 - `lib/core/**` is framework-free and DB-free. No imports from `@prisma/client`,
   Next, React, or `@anthropic-ai/sdk`. The state machine and prompts live here
-  precisely so they can be lifted into the events repo unchanged when we
-  port (Path B).
+  so they can move to another runtime unchanged.
 - `lib/integrations/data.ts` is the **data swap point**. Anything that touches
-  the database goes through `LeadRepository`. The Vendelux API client (when
-  built) is another implementation of that interface, not a parallel data
-  path.
+  the database goes through `LeadRepository`. A future API-backed store is
+  another implementation of that interface, not a parallel data path.
 - `lib/auth/context.ts` is the **auth swap point**. The current cookie
-  implementation is a placeholder; replace it with Auth0 in one file. Routes
-  and pages depend only on `ClientContext`.
-- Webhook handlers respond 200 immediately, do work async via Vercel's
+  implementation is a placeholder; an SSO provider replaces it in one file.
+  Routes and pages depend only on `ClientContext`.
+- Webhook handlers respond 200 immediately and do work async via Vercel's
   `waitUntil`. The scheduling webhook is the one exception — it returns
   real status to the calling provider.
 - Every external call has a timeout and structured logging. Use the helpers
@@ -58,15 +48,12 @@ gitignored. Don't commit them.
 ## Secrets handling
 
 Never read `.env`, `.env.local`, or any credential file into the LLM
-context. Pipe secrets directly to their destination.
-
-For production secrets, the Vendelux convention is AWS Secrets Manager.
-Local dev uses `.env` (gitignored).
+context. Pipe secrets directly to their destination. Production secrets live
+in the hosting provider's encrypted env settings; local dev uses `.env`
+(gitignored).
 
 ## When in doubt
 
-Read [docs/vendelux-integration.md](docs/vendelux-integration.md) for the
-integration plan, [README.md](README.md) for setup and architecture, and the
-events repo's `AGENTS.md` for cross-cutting conventions.
-
-If an approach takes more than 2-3 workarounds, stop and ask.
+Read [README.md](README.md) for setup and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+for how the pieces fit. If an approach takes more than 2-3 workarounds, stop
+and ask.

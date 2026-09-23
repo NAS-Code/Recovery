@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       count: leads.length,
       leads: leads.map((lead) => ({
         id: lead.id,
-        vendeluxLeadId: lead.vendeluxLeadId,
+        sourceLeadId: lead.sourceLeadId,
         name: lead.name,
         company: lead.company,
         clientId: lead.clientId,

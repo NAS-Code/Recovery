@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 /**
  * Caller (phone outreach) manually rebooked a no-show lead. Two modes:
- * - native:   booked through the Vendelux scheduler → authoritative, confirm
+ * - native:   booked through the platform scheduler → authoritative, confirm
  *             immediately (scheduler enforced availability).
  * - external: booked on the client's own calendar → same flow as an SMS
  *             reschedule: conflict pre-check, then pending_client_approval so
@@ -55,8 +55,8 @@ export async function POST(
     await repo.updateLeadStatus(lead.id, "confirmed_reschedule");
 
     const [sf, client, event] = await Promise.all([
-      lead.vendeluxLeadId
-        ? getLeadById(lead.vendeluxLeadId).catch(() => null)
+      lead.sourceLeadId
+        ? getLeadById(lead.sourceLeadId).catch(() => null)
         : Promise.resolve(null),
       repo.getClient(lead.clientId),
       repo.getCurrentEventForClient(lead.clientId)
@@ -80,11 +80,11 @@ export async function POST(
   }
 
   // external — pre-check against known meetings, then route to client approval
-  if (lead.vendeluxLeadId) {
+  if (lead.sourceLeadId) {
     const known = await getCampaignMeetingTimes(
       lead.clientId,
       lead.eventId,
-      lead.vendeluxLeadId
+      lead.sourceLeadId
     ).catch(() => [] as Date[]);
     if (hasConflict(known, meetingTime)) {
       return NextResponse.json(

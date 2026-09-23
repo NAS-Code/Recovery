@@ -1,11 +1,19 @@
-# Vendelux Concierge — No-Show Recovery
+# Concierge — No-Show Recovery
 
 AI-powered SMS concierge that recovers missed event meetings automatically.
-Live in production at **concierge.vendelux.com** (Vercel).
+Built for an events platform whose clients book meetings with leads at
+conferences; deployed on Vercel.
 
-> Project summary for stakeholder updates: [PROJECT_UPDATE_SOURCE.md](PROJECT_UPDATE_SOURCE.md).
-> Vendelux integration plan: [docs/vendelux-integration.md](docs/vendelux-integration.md).
+> Architecture and operational notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 > Agent conventions: [AGENTS.md](AGENTS.md).
+
+## Why
+
+Meetings booked at events are expensive to win, and when a lead no-shows
+that investment is lost. Onsite teams are too busy running the booth to chase
+no-shows by hand, so follow-up is slow and inconsistent. This service reaches
+the lead within minutes, holds the rebooking conversation itself, and only
+pulls in a human when the AI can't safely handle a reply.
 
 ## What it does
 
@@ -13,7 +21,7 @@ Clients run booths at industry events and pre-schedule meetings with leads. When
 a lead misses a meeting, the client (or an admin on their behalf) marks them
 no-show on the campaign dashboard. The system then:
 
-1. Pulls the lead's details from Snowflake (Vendelux's warehouse) and caches
+1. Pulls the lead's details from Snowflake (the platform's data warehouse) and caches
    them in Postgres.
 2. Sends a recovery SMS via Clicksend from the event's agent persona.
 3. Receives the lead's reply via the Clicksend inbound webhook.
@@ -35,7 +43,7 @@ two different clients at the same event must never receive texts from "two
 people." Defense in depth:
 
 - **Pipeline level** — upstream dedup keeps one lead per phone number in the
-  Sigma view (priority: days-to-meeting, team tier, status).
+  leads view (priority: days-to-meeting, team tier, status).
 - **App level (client route)** — if a campaign-dashboard user marks a lead whose
   phone already has an active conversation in another campaign, the mark
   *silently succeeds* (dashboard shows no-show) but no SMS is sent. The lead is
@@ -47,11 +55,11 @@ people." Defense in depth:
 
 - Next.js 14 (App Router) + TypeScript, Tailwind for dashboards
 - Prisma 6 + PostgreSQL (Neon in production) via the `pg` driver adapter
-- Snowflake SDK — read-only access to Vendelux campaign/lead views
+- Snowflake SDK — read-only access to campaign/lead views
 - Anthropic SDK with structured tool-use + prompt caching
 - Clicksend for SMS, Slack Web API for FDE handoff, Instantly for email (scaffolded, unused)
 - Vercel: hosting, serverless functions, cron jobs, custom domain
-- Vitest — 75 unit tests
+- Vitest — 93 unit tests
 
 ## URL structure & auth
 
@@ -59,9 +67,9 @@ Routes are split by audience, enforced in [middleware.ts](middleware.ts):
 
 | Path | Audience | Auth |
 | --- | --- | --- |
-| `/admin/login` | Vendelux staff | public |
-| `/admin/campaigns` | Vendelux staff | `admin_session` cookie |
-| `/admin/activity` | Vendelux staff | `admin_session` cookie — SMS activity feed with message-type filters |
+| `/admin/login` | Platform staff | public |
+| `/admin/campaigns` | Platform staff | `admin_session` cookie |
+| `/admin/activity` | Platform staff | `admin_session` cookie — SMS activity feed with message-type filters |
 | `/customer/login` | Clients | public |
 | `/customer/[teamId]/[eventId]` | Clients + admins | `campaign_session` (scoped to that campaign) or `admin_session` |
 | `/dashboard/**` | Internal prototype views | `client_id` cookie |
@@ -99,16 +107,22 @@ wsl --install -d Ubuntu
 ```
 
 Then in the Ubuntu shell, install Node 22 + Postgres, copy the project to
-`~/vdx`, and run the steps above. There's a re-runnable smoke check at
-[scripts/wsl-smoke-native.sh](scripts/wsl-smoke-native.sh) that does the full
-install + tests + typecheck flow.
+the Linux filesystem (not `/mnt/c`, which is slow), and run the steps above.
 
 ### Tests
 
 ```bash
-npm test           # 75 unit tests: state machine, parsers, templates, Snowflake mappers
+npm test           # 93 unit tests: state machine, parsers, templates, Snowflake mappers
 npm run typecheck  # strict TS
 ```
+
+### Scripts
+
+| Script | Purpose |
+| --- | --- |
+| [scripts/create-campaign-credential.mjs](scripts/create-campaign-credential.mjs) | Create or override a client's dashboard login |
+| [scripts/reset-test-lead.mjs](scripts/reset-test-lead.mjs) | Reset a seeded lead to `scheduled` (optionally pointing it at a real phone) to replay the SMS flow |
+| [scripts/describe-snowflake-view.mjs](scripts/describe-snowflake-view.mjs) | Print a Snowflake view's columns to check for upstream schema drift |
 
 ### Deployment
 
@@ -129,15 +143,18 @@ migrations are applied to the production database automatically on deploy.
 | `CONCIERGE_INBOUND_NUMBERS` | no | Comma-separated number(s) concierge owns; the inbound webhook ignores messages to any other number. Defaults to `CLICKSEND_FROM_NUMBER`. |
 | `SLACK_BOT_TOKEN` | yes (for FDE handoff) | `xoxb-…` token, scopes: `chat:write` |
 | `SLACK_DEFAULT_CHANNEL` | no | Fallback channel when a lead has no `fde_owner_slack_id` |
+| `SLACK_REBOOKED_CHANNEL` | no | Channel for rebooking alerts; defaults to `SLACK_DEFAULT_CHANNEL` |
 | `SNOWFLAKE_ACCOUNT` | yes | Snowflake account identifier |
 | `SNOWFLAKE_USERNAME` | yes | Snowflake user |
 | `SNOWFLAKE_PASSWORD` | yes | Snowflake password |
 | `SNOWFLAKE_WAREHOUSE` | no | Warehouse (secondary roles are activated automatically) |
 | `SNOWFLAKE_ROLE` | no | Role override |
-| `CAMPAIGNS_ADMIN_USERNAME` | yes | Admin dashboard login (defaults to `vendelux`) |
+| `SCHEDULER_BASE_URL` | no | Base URL of the native booking scheduler; rebook links are `<base><slug>?utm_…` |
+| `SIDECAR_LEADS_TEAM_ID` / `SIDECAR_LEADS_TABLE` | no | Optional one-client override that reads leads from a separate table (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)) |
+| `CAMPAIGNS_ADMIN_USERNAME` | yes | Admin dashboard login |
 | `CAMPAIGNS_ADMIN_PASSWORD` | yes | Admin dashboard password |
 | `AGENT_PERSONA_NAME` | no | Fallback agent persona when Snowflake has none |
-| `INSTANTLY_API_KEY` | no | Instantly customer-workspace key (`emails:create` scope); sends the one-off no-show email via `/api/v2/emails/test` |
+| `Instantly_API_Key_Full_Email_Create` | no | Instantly agency key (`emails:create` scope); sends the one-off no-show email via `/api/v2/emails/test` |
 | `APP_BASE_URL` | no | Public URL (used for "Open in dashboard" buttons in Slack) |
 | `CRON_SECRET` | yes (in production) | Vercel Cron `Authorization: Bearer …` shared secret |
 
@@ -155,7 +172,7 @@ app/
 │   │   ├── campaign-logout/route.ts
 │   │   ├── sign-in/route.ts             # dev placeholder for /dashboard views
 │   │   └── sign-out/route.ts
-│   ├── campaigns/[teamId]/[eventId]/leads/[vendeluxLeadId]/noshow/route.ts
+│   ├── campaigns/[teamId]/[eventId]/leads/[sourceLeadId]/noshow/route.ts
 │   │                                    # main no-show flow: Snowflake pull → SMS;
 │   │                                    # silent suppression on duplicate phone
 │   ├── leads/[id]/noshow/route.ts       # legacy/internal flow (admin: hard 409 on dup)
@@ -166,7 +183,7 @@ app/
 │       ├── eod-checkin/route.ts
 │       ├── end-of-event-virtual/route.ts
 │       └── cancel-suppressed/route.ts   # suppressed → canceled after 1h TTL
-├── admin/                               # Vendelux-staff views
+├── admin/                               # platform-staff views
 │   ├── login/  campaigns/  activity/
 │   └── _components/                     # CampaignsTable, LogoutButton, …
 ├── customer/                            # client-facing campaign dashboards
@@ -193,8 +210,8 @@ lib/
 │   ├── data.prisma.ts                   # Postgres impl (lead state, conversations)
 │   ├── prisma.ts                        # singleton client w/ pg driver adapter
 │   ├── snowflake.ts                     # warm connection + query() with timeout
-│   ├── campaigns.snowflake.ts           # V_VDX_CAMPAIGN_CONFIG queries
-│   ├── leads.snowflake.ts               # SLOANE_LEADS_WITH_POSITIVE_STATUS queries
+│   ├── campaigns.snowflake.ts           # V_CAMPAIGN_CONFIG queries
+│   ├── leads.snowflake.ts               # LEADS_WITH_POSITIVE_STATUS queries
 │   ├── claude.ts                        # Anthropic SDK wrapper, parseClassification
 │   ├── clicksend.ts                     # sendSms + parseInboundWebhook
 │   ├── slack.ts                         # Block Kit FDE notification
@@ -208,16 +225,16 @@ lib/
 ### Data model: Snowflake reads, Postgres owns state
 
 Snowflake is the read-only source of truth for campaigns and leads
-(Vendelux Sigma views). Postgres owns everything the concierge creates:
+(BI views). Postgres owns everything the concierge creates:
 lead status, conversation history, sessions, credentials. When a lead is
 marked no-show, its Snowflake row is cached into Postgres
 (`cacheSnowflakeLead`) and the dashboard overlays concierge state on the
 Snowflake list at render time.
 
-> ⚠️ The app queries live Sigma views. Upstream column renames have broken
+> ⚠️ The app queries live BI views. Upstream column renames have broken
 > production before (`DATE_MEETING_BOOKED_FOR_1` → `DATE_MEETING_BOOKED_FOR`).
-> There is no schema contract or alerting — coordinate with the Data team
-> before view changes.
+> There is no schema contract or alerting, so view changes need coordinating
+> with whoever owns the warehouse.
 
 ### Lead status state machine
 
@@ -302,7 +319,7 @@ Suppressed leads (`suppressedAt` set) are excluded from both outreach crons.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| POST | `/api/campaigns/:teamId/:eventId/leads/:vendeluxLeadId/noshow` | admin or campaign session | Main no-show flow; silent suppression on duplicate phone |
+| POST | `/api/campaigns/:teamId/:eventId/leads/:sourceLeadId/noshow` | admin or campaign session | Main no-show flow; silent suppression on duplicate phone |
 | POST | `/api/leads/:id/noshow` | client cookie + ownership | Legacy flow; hard 409 on duplicate phone |
 | POST | `/api/webhooks/clicksend` | none (TODO: shared secret) | Inbound SMS, async classification + reply |
 | POST | `/api/webhooks/scheduling` | none (TODO: shared secret) | Lead self-rescheduled via native link → `confirmed_reschedule` |
@@ -315,11 +332,6 @@ Suppressed leads (`suppressedAt` set) are excluded from both outreach crons.
 
 - **Auth0.** Admin and campaign auth use env/DB credentials. Auth0
   "Regular Web Application" setup is the planned replacement.
-- **Credential rotation.** Anthropic API key, Snowflake password, and Slack bot
-  token were exposed during development and must be rotated before broad rollout.
-- **Slack channel.** `SLACK_DEFAULT_CHANNEL` still points at a test channel.
-- **Seed data in production.** The production DB still contains seed
-  conversations (Alice Johnson et al.) that should be cleaned out.
 - **Webhook signature verification.** Clicksend doesn't sign; add a query-param
   secret to both webhook routes.
 - **Idempotency on Clicksend inbound.** Retry deliveries can cause duplicate
@@ -327,15 +339,13 @@ Suppressed leads (`suppressedAt` set) are excluded from both outreach crons.
   `provider_message_id`.
 - **Single-event cron.** `runEodCheckin` handles one current event per run;
   fan out per event before running many simultaneous campaigns.
-- **Instantly email is implemented but not wired.** No caller invokes
-  `sendEmail()` yet.
 - **Virtual-offer dedup is text-based.** The end-of-event cron dedupes by
   scanning for a marker phrase — fragile to template edits; replace with a
   column when convenient.
 
 ## Test coverage
 
-75 unit tests across:
+93 unit tests across:
 
 - [tests/conversation-state.test.ts](tests/conversation-state.test.ts) — every
   transition path including pivots, terminal stickiness, and `is_confirmation`

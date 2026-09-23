@@ -1,5 +1,5 @@
 /**
- * Admin authentication for the Vendelux team.
+ * Admin authentication for the platform team.
  *
  * Credentials come from env vars: CAMPAIGNS_ADMIN_USERNAME / CAMPAIGNS_ADMIN_PASSWORD.
  * Sessions are STATELESS — an HMAC-signed token is stored in an httpOnly cookie.

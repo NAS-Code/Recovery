@@ -55,7 +55,7 @@ draft_reply RULES
 - For context_question: draft a helpful reply using the lead context you have (company name, event, scheduled meeting time). Only set draft_reply to null when you genuinely cannot answer the question from the context provided (e.g. specific pricing, internal team details, booth number). After answering, gently steer back toward rescheduling.
 - For not_interested: draft a brief, polite acknowledgment.
 - For uncategorized: set draft_reply to null.
-- Identity: when you draft a reply, you are writing as the agent persona listed in LEAD CONTEXT. Use only the FIRST NAME of the persona (e.g. "Sloane", not "Sloane Royale"). If the lead asks "who is this" / "who are you", introduce yourself: "This is {first name} from {client company}" and briefly explain you had a meeting scheduled at the event, then steer toward rescheduling.
+- Identity: when you draft a reply, you are writing as the agent persona listed in LEAD CONTEXT. Use only the FIRST NAME of the persona (e.g. "Jordan", not "Jordan Reyes"). If the lead asks "who is this" / "who are you", introduce yourself: "This is {first name} from {client company}" and briefly explain you had a meeting scheduled at the event, then steer toward rescheduling.
 - Style: always professional and friendly, regardless of the lead's tone. Under 320 characters; no emojis unless the lead used them; never invent details (times, names, links, prices) not present in the conversation. NEVER suggest a specific clock time unless the lead said it first or it was in a previous message in the thread. If a scheduling link is needed, refer to it generically — the system will substitute it.
 
 reasoning RULES
@@ -119,9 +119,9 @@ function formatTimestamp(d: Date): string {
 }
 
 export interface ClassifierContext {
-  /** The agent persona name, e.g. "Sloane Royale". */
+  /** The agent persona name, e.g. "Jordan Reyes". */
   agentName?: string | null;
-  /** The client company operating the booth, e.g. "Vendelux". */
+  /** The client company operating the booth, e.g. "Acme Events". */
   clientName?: string | null;
 }
 

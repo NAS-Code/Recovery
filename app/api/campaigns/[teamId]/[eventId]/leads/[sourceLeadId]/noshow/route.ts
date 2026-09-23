@@ -26,7 +26,7 @@ export async function POST(
   {
     params
   }: {
-    params: { teamId: string; eventId: string; vendeluxLeadId: string };
+    params: { teamId: string; eventId: string; sourceLeadId: string };
   }
 ) {
   const teamId = decodeURIComponent(params.teamId);
@@ -55,12 +55,12 @@ export async function POST(
   if (!authorized) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const vendeluxLeadId = decodeURIComponent(params.vendeluxLeadId);
+  const sourceLeadId = decodeURIComponent(params.sourceLeadId);
 
   const repo = getLeadRepository();
 
   // If we've already cached this lead and it's past 'scheduled', short-circuit
-  const existing = await repo.getLeadByVendeluxId(vendeluxLeadId);
+  const existing = await repo.getLeadBySourceId(sourceLeadId);
   if (existing && existing.status !== "scheduled") {
     return NextResponse.json(
       { error: "invalid_state", currentStatus: existing.status },
@@ -69,7 +69,7 @@ export async function POST(
   }
 
   const [snowflakeLead, campaign, subCampaignCtx] = await Promise.all([
-    getLeadById(vendeluxLeadId),
+    getLeadById(sourceLeadId),
     getCampaignRepository().getCampaign(teamId, eventId),
     getSubCampaignContext(teamId, eventId)
   ]);
@@ -82,7 +82,7 @@ export async function POST(
   }
   if (!snowflakeLead.phone) {
     return NextResponse.json(
-      { error: "lead_has_no_phone", detail: "NUMBER_DIALED is null in the Sigma view for this lead" },
+      { error: "lead_has_no_phone", detail: "NUMBER_DIALED is null in the leads view for this lead" },
       { status: 422 }
     );
   }
@@ -104,7 +104,7 @@ export async function POST(
     || null;
 
   const lead = await repo.cacheSnowflakeLead({
-    vendeluxLeadId,
+    sourceLeadId,
     teamId: campaign.teamId,
     teamName: campaign.teamName,
     eventId: campaign.eventId,
@@ -129,7 +129,7 @@ export async function POST(
 
     logger.info("noshow.suppressed", {
       leadId: lead.id,
-      vendeluxLeadId,
+      sourceLeadId,
       teamId: campaign.teamId,
       eventId: campaign.eventId,
       reason: activeForPhone ? "active_lead" : "cross_team",
@@ -138,15 +138,15 @@ export async function POST(
 
     return NextResponse.json({
       leadId: lead.id,
-      vendeluxLeadId,
+      sourceLeadId,
       status: "no_show",
       sms: { messageId: "suppressed", status: "suppressed" }
     });
   }
 
   // Normal path — resolve the native scheduler rebooking link (null when the
-  // campaign has no active scheduler; only native vendelux.com links are sent).
-  const rebookLink = await getSchedulerRebookLink(teamId, eventId, vendeluxLeadId);
+  // campaign has no active scheduler; only native scheduler links are sent).
+  const rebookLink = await getSchedulerRebookLink(teamId, eventId, sourceLeadId);
 
   const senderCtx = {
     agentName: agentPersonaName,
@@ -164,7 +164,7 @@ export async function POST(
   } catch (err) {
     logger.error("noshow.snowflake.sms_failed", {
       leadId: lead.id,
-      vendeluxLeadId,
+      sourceLeadId,
       error: err instanceof Error ? err.message : String(err)
     });
     return NextResponse.json(
@@ -201,21 +201,21 @@ export async function POST(
       });
       logger.info("noshow.email.sent", {
         leadId: lead.id,
-        vendeluxLeadId,
+        sourceLeadId,
         emailMessageId: emailResult.messageId,
         emailStatus: emailResult.status
       });
     } catch (err) {
       logger.error("noshow.email.failed", {
         leadId: lead.id,
-        vendeluxLeadId,
+        sourceLeadId,
         error: err instanceof Error ? err.message : String(err)
       });
     }
   } else {
     logger.info("noshow.email.skipped", {
       leadId: lead.id,
-      vendeluxLeadId,
+      sourceLeadId,
       hasEmail: !!lead.email,
       hasSender: !!senderEmail,
       hasLink: !!rebookLink
@@ -224,7 +224,7 @@ export async function POST(
 
   logger.info("noshow.snowflake.marked", {
     leadId: lead.id,
-    vendeluxLeadId,
+    sourceLeadId,
     teamId: campaign.teamId,
     eventId: campaign.eventId,
     smsMessageId: sms.messageId,
@@ -233,7 +233,7 @@ export async function POST(
 
   return NextResponse.json({
     leadId: lead.id,
-    vendeluxLeadId,
+    sourceLeadId,
     status: "no_show",
     sms: { messageId: sms.messageId, status: sms.status }
   });

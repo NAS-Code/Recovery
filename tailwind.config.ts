@@ -5,11 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        vdx: {
-          plum: "#3B1A3E",
-          coral: "#E8566D",
-          cream: "#F5F0E8",
-          "cream-dark": "#EDE7DC",
+        brand: {
+          primary: "#1E2A4A",
+          accent: "#2F8F83",
+          surface: "#F3F5F8",
+          "surface-dark": "#E4E8EE",
         }
       }
     }

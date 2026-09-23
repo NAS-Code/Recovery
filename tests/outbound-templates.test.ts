@@ -17,7 +17,7 @@ const baseLead: Lead = {
   eventId: "event_1",
   nativeSchedulingLink: null,
   fdeOwnerSlackId: null,
-  vendeluxLeadId: null,
+  sourceLeadId: null,
   status: "scheduled",
   scheduledMeetingTime: null,
   proposedMeetingTime: null,
@@ -76,16 +76,16 @@ describe("buildFirstNoShowSms", () => {
   });
 
   it("includes first name of agent persona and client name when provided", () => {
-    const ctx: SenderContext = { agentName: "Sloane Royale", clientName: "Vendelux" };
+    const ctx: SenderContext = { agentName: "Jordan Reyes", clientName: "Acme Events" };
     const msg = buildFirstNoShowSms(baseLead, ctx);
-    expect(msg).toContain("This is Sloane from Vendelux.");
+    expect(msg).toContain("This is Jordan from Acme Events.");
     expect(msg).not.toContain("Royale");
   });
 
   it("includes only client name when no agent persona", () => {
-    const ctx: SenderContext = { clientName: "Vendelux" };
+    const ctx: SenderContext = { clientName: "Acme Events" };
     const msg = buildFirstNoShowSms(baseLead, ctx);
-    expect(msg).toContain("This is the team at Vendelux.");
+    expect(msg).toContain("This is the team at Acme Events.");
   });
 
   it("omits sender intro when no context provided", () => {
@@ -102,9 +102,9 @@ describe("buildVirtualOfferSms", () => {
   });
 
   it("includes first name of agent persona when context is provided", () => {
-    const ctx: SenderContext = { agentName: "Sloane Royale", clientName: "Vendelux" };
+    const ctx: SenderContext = { agentName: "Jordan Reyes", clientName: "Acme Events" };
     const msg = buildVirtualOfferSms(baseLead, ctx);
-    expect(msg).toContain("This is Sloane from Vendelux.");
+    expect(msg).toContain("This is Jordan from Acme Events.");
     expect(msg).not.toContain("Royale");
   });
 });

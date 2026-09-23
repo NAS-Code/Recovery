@@ -34,7 +34,7 @@ async function createAndConnect(): Promise<snowflake.Connection> {
     conn.connect((err) => (err ? reject(err) : resolve()));
   });
 
-  // Vendelux's pattern places warehouse USAGE in a secondary role
+  // The warehouse setup places warehouse USAGE in a secondary role
   // (ALL_WAREHOUSES_USAGE). Activate every granted role so the connection
   // can actually run compute regardless of which primary role we authed as.
   await execStatement(conn, "USE SECONDARY ROLES ALL");

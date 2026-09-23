@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
-import { VdxHeader } from "@/app/_components/VdxHeader";
+import { AppHeader } from "@/app/_components/AppHeader";
 import { LogoutButton } from "../_components/LogoutButton";
 
 export const dynamic = "force-dynamic";
@@ -49,12 +49,12 @@ export default async function EventsPage() {
 
   return (
     <>
-      <VdxHeader rightSlot={<LogoutButton />} />
+      <AppHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-8">
           <Link
             href="/admin/campaigns"
-            className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
+            className="text-xs text-brand-primary/60 hover:text-brand-accent hover:underline"
           >
             &larr; All campaigns
           </Link>
@@ -68,7 +68,7 @@ export default async function EventsPage() {
 
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-vdx-cream text-left text-[11px] uppercase tracking-wider text-slate-600">
+            <thead className="bg-brand-surface text-left text-[11px] uppercase tracking-wider text-slate-600">
               <tr>
                 <th className="px-5 py-3 font-semibold">Event</th>
                 <th className="px-5 py-3 font-semibold">Dates</th>
@@ -77,11 +77,11 @@ export default async function EventsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {[...events.values()].map((e) => (
-                <tr key={e.eventId} className="transition-colors hover:bg-vdx-cream/40">
+                <tr key={e.eventId} className="transition-colors hover:bg-brand-surface/40">
                   <td className="px-5 py-3.5">
                     <Link
                       href={`/admin/events/${encodeURIComponent(e.eventId)}`}
-                      className="font-medium text-slate-900 hover:text-vdx-coral hover:underline"
+                      className="font-medium text-slate-900 hover:text-brand-accent hover:underline"
                     >
                       {e.eventName}
                     </Link>

@@ -46,15 +46,16 @@ function LoginForm() {
         {/* Logo + branding */}
         <div className="mb-8 text-center">
           <Image
-            src="/vdx-logo.png"
-            alt="Vendelux"
+            src="/logo.svg"
+            unoptimized
+            alt="Concierge"
             width={48}
             height={48}
             className="mx-auto h-12 w-12"
             priority
           />
           <h1 className="mt-4 text-xl font-bold tracking-tight text-slate-900">
-            Vendelux Automated Concierge
+            Automated Concierge
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Sign in to view your campaign dashboard
@@ -81,7 +82,7 @@ function LoginForm() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
                 placeholder="Enter your username"
               />
             </div>
@@ -100,7 +101,7 @@ function LoginForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-vdx-coral focus:outline-none focus:ring-1 focus:ring-vdx-coral"
+                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
                 placeholder="Enter your password"
               />
             </div>
@@ -113,7 +114,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={pending}
-            className="mt-5 w-full rounded-md bg-vdx-plum px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-vdx-coral disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 w-full rounded-md bg-brand-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? "Signing in…" : "Sign in"}
           </button>

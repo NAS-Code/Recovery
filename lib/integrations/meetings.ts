@@ -17,16 +17,16 @@ import {
 export async function getCampaignMeetingTimes(
   teamId: string,
   eventId: string,
-  excludeVendeluxLeadId: string
+  excludeSourceLeadId: string
 ): Promise<Date[]> {
   const leads = await listLeadsForCampaign(teamId, eventId);
-  const states = await getLeadRepository().getLeadStatesByVendeluxIds(
+  const states = await getLeadRepository().getLeadStatesBySourceIds(
     leads.map((l) => l.leadId)
   );
 
   const times: Date[] = [];
   for (const lead of leads) {
-    if (lead.leadId === excludeVendeluxLeadId) continue;
+    if (lead.leadId === excludeSourceLeadId) continue;
     const concierge = states.get(lead.leadId);
     const t = concierge?.scheduledMeetingTime ?? combineMeetingDateTime(lead);
     if (t) times.push(t);

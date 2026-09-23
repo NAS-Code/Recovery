@@ -154,7 +154,7 @@ async function processInbound(inbound: InboundSms): Promise<void> {
   });
 
   // Reschedule confirmations don't auto-confirm. In client-calendar mode we can't
-  // see meetings booked outside Vendelux, so check the times we DO know for a
+  // see meetings booked outside the platform, so check the times we DO know for a
   // clash, then hold for the client to approve before telling the lead anything.
   const proposedTime =
     classification.category === "reschedule_at_event" &&
@@ -183,8 +183,8 @@ async function processInbound(inbound: InboundSms): Promise<void> {
   // every later message while already confirmed.
   if (newStatus !== lead.status && RESCHEDULE_STATUSES.includes(newStatus)) {
     // Pull OCM/CSM names from Snowflake so we can tag them. Best-effort.
-    const sf = lead.vendeluxLeadId
-      ? await getLeadById(lead.vendeluxLeadId).catch(() => null)
+    const sf = lead.sourceLeadId
+      ? await getLeadById(lead.sourceLeadId).catch(() => null)
       : null;
     await notifyRebooked({
       lead: { ...lead, status: newStatus },
@@ -265,11 +265,11 @@ async function handleRescheduleProposal(
   const repo = getLeadRepository();
 
   // lead.clientId is the Snowflake teamId and lead.eventId the eventId (set by cacheSnowflakeLead).
-  const known = lead.vendeluxLeadId
+  const known = lead.sourceLeadId
     ? await getCampaignMeetingTimes(
         lead.clientId,
         lead.eventId,
-        lead.vendeluxLeadId
+        lead.sourceLeadId
       ).catch(() => [] as Date[])
     : [];
 

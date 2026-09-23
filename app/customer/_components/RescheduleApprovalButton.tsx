@@ -6,12 +6,12 @@ import { useState } from "react";
 export function RescheduleApprovalButton({
   teamId,
   eventId,
-  vendeluxLeadId,
+  sourceLeadId,
   proposedLabel
 }: {
   teamId: string;
   eventId: string;
-  vendeluxLeadId: string;
+  sourceLeadId: string;
   /** Human-readable proposed time, e.g. "Jun 18, 11:45 AM PDT". */
   proposedLabel: string;
 }) {
@@ -23,7 +23,7 @@ export function RescheduleApprovalButton({
     setPending(decision);
     setError(null);
     try {
-      const url = `/api/campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}/leads/${encodeURIComponent(vendeluxLeadId)}/reschedule-approval`;
+      const url = `/api/campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}/leads/${encodeURIComponent(sourceLeadId)}/reschedule-approval`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const username = body.username.trim();
   const password = body.password;
 
-  // 1) Try admin (Vendelux team) credentials first
+  // 1) Try admin (platform team) credentials first
   const adminToken = await verifyAdminCredential(username, password);
   if (adminToken) {
     const res = NextResponse.json({

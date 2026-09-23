@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
-import { VdxHeader } from "@/app/_components/VdxHeader";
+import { AppHeader } from "@/app/_components/AppHeader";
 import { AutoRefresh } from "@/app/_components/AutoRefresh";
 import { LogoutButton } from "../_components/LogoutButton";
 import { ActivityFeed } from "./_components/ActivityFeed";
@@ -107,12 +107,12 @@ export default async function ActivityPage() {
 
   return (
     <>
-      <VdxHeader rightSlot={<LogoutButton />} />
+      <AppHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <AutoRefresh intervalMs={10000} />
         <Link
           href="/admin/campaigns"
-          className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
+          className="text-xs text-brand-primary/60 hover:text-brand-accent hover:underline"
         >
           &larr; All campaigns
         </Link>

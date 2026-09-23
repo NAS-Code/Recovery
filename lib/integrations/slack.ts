@@ -148,9 +148,10 @@ export async function notifyRebooked(input: {
   ocm?: string | null;
   csm?: string | null;
 }): Promise<void> {
-  // ponytail: env override defaults to the given channel; swap for test/prod without redeploy
-  const channel = process.env.SLACK_REBOOKED_CHANNEL ?? "C0AV49FKSCF";
-  if (!process.env.SLACK_BOT_TOKEN) {
+  // ponytail: env override defaults to the default channel; swap for test/prod without redeploy
+  const channel =
+    process.env.SLACK_REBOOKED_CHANNEL ?? process.env.SLACK_DEFAULT_CHANNEL;
+  if (!process.env.SLACK_BOT_TOKEN || !channel) {
     logger.warn("slack.notify_rebooked.no_token", { leadId: input.lead.id });
     return;
   }

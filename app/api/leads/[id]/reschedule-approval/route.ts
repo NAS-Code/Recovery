@@ -57,11 +57,11 @@ export async function POST(
   }
 
   // Re-check against known meetings (only possible when the lead came from Snowflake).
-  if (lead.vendeluxLeadId) {
+  if (lead.sourceLeadId) {
     const known = await getCampaignMeetingTimes(
       lead.clientId,
       lead.eventId,
-      lead.vendeluxLeadId
+      lead.sourceLeadId
     ).catch(() => [] as Date[]);
     if (hasConflict(known, proposedTime)) {
       return NextResponse.json(

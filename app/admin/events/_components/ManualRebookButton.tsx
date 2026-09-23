@@ -74,7 +74,7 @@ export function ManualRebookButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md bg-vdx-plum px-3 py-1.5 text-xs font-medium text-white hover:bg-vdx-coral"
+        className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-accent"
       >
         Mark rebooked
       </button>
@@ -94,7 +94,7 @@ export function ManualRebookButton({
             checked={mode === "native"}
             onChange={() => setMode("native")}
           />
-          Native Vendelux scheduler
+          Native platform scheduler
         </label>
         <label className="flex items-center gap-2">
           <input

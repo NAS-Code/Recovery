@@ -87,11 +87,11 @@ describe("parseInboundWebhook — valid payloads", () => {
 describe("parseInboundWebhook — form-encoded payloads (Clicksend URL action)", () => {
   it("parses an object reconstructed from URLSearchParams", () => {
     const formText =
-      "from=%2B15555550101&to=%2B18335184857&body=TEST+4pm+works&message_id=msg_xyz&timestamp=1714400000";
+      "from=%2B15555550101&to=%2B15550100200&body=TEST+4pm+works&message_id=msg_xyz&timestamp=1714400000";
     const obj = Object.fromEntries(new URLSearchParams(formText));
     const result = parseInboundWebhook(obj);
     expect(result.from).toBe("+15555550101");
-    expect(result.to).toBe("+18335184857");
+    expect(result.to).toBe("+15550100200");
     expect(result.text).toBe("TEST 4pm works");
     expect(result.messageId).toBe("msg_xyz");
     expect(result.timestamp.getTime()).toBe(1714400000 * 1000);

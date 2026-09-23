@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 
 /**
  * Multi-tenant client context. The cookie-based implementation here is a
- * placeholder for real auth — swap in NextAuth, Clerk, or whatever Vendelux
- * uses by replacing only this file. Everything downstream consumes
+ * placeholder for real auth — swap in NextAuth, Clerk, or whatever the
+ * platform uses by replacing only this file. Everything downstream consumes
  * { clientId } and is auth-provider-agnostic.
  */
 export const CLIENT_COOKIE_NAME = "client_id";

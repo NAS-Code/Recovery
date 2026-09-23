@@ -3,7 +3,7 @@ import type { CampaignRepository } from "@/lib/integrations/campaigns";
 import { query } from "@/lib/integrations/snowflake";
 
 interface CampaignRow {
-  VDX_CAMPAIGN_ID: string;
+  EXTERNAL_CAMPAIGN_ID: string;
   TEAM_ID: string;
   TEAM_NAME: string;
   EVENT_ID: string;
@@ -14,7 +14,7 @@ interface CampaignRow {
 
 function toDomain(row: CampaignRow): Campaign {
   return {
-    vdxCampaignId: row.VDX_CAMPAIGN_ID,
+    externalCampaignId: row.EXTERNAL_CAMPAIGN_ID,
     teamId: row.TEAM_ID,
     teamName: row.TEAM_NAME,
     eventId: row.EVENT_ID,
@@ -25,7 +25,7 @@ function toDomain(row: CampaignRow): Campaign {
 }
 
 const CAMPAIGN_COLUMNS = `
-  vdx_campaign_id   AS "VDX_CAMPAIGN_ID",
+  external_campaign_id   AS "EXTERNAL_CAMPAIGN_ID",
   team_id           AS "TEAM_ID",
   team_name         AS "TEAM_NAME",
   event_id          AS "EVENT_ID",
@@ -39,7 +39,7 @@ export class SnowflakeCampaignRepository implements CampaignRepository {
     const isoDate = now.toISOString().slice(0, 10);
     const rows = await query<CampaignRow>(
       `SELECT ${CAMPAIGN_COLUMNS}
-       FROM SILVER.SLOANE_V2.V_VDX_CAMPAIGN_CONFIG
+       FROM ANALYTICS.CONCIERGE.V_CAMPAIGN_CONFIG
        WHERE event_date_end >= ?
        ORDER BY event_date_start ASC, team_name ASC`,
       [isoDate]
@@ -53,7 +53,7 @@ export class SnowflakeCampaignRepository implements CampaignRepository {
   ): Promise<Campaign | null> {
     const rows = await query<CampaignRow>(
       `SELECT ${CAMPAIGN_COLUMNS}
-       FROM SILVER.SLOANE_V2.V_VDX_CAMPAIGN_CONFIG
+       FROM ANALYTICS.CONCIERGE.V_CAMPAIGN_CONFIG
        WHERE team_id = ? AND event_id = ?
        LIMIT 1`,
       [teamId, eventId]

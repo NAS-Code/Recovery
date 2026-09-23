@@ -4,7 +4,7 @@
  * Usage:
  *   node scripts/create-campaign-credential.mjs <username> <password> <teamId> <eventId> [label]
  *
- * NOTE: Credentials are now auto-generated when a Vendelux admin views the campaigns page.
+ * NOTE: Credentials are now auto-generated when an admin views the campaigns page.
  * This script is only needed for manual overrides (e.g. custom username or password).
  */
 import pg from "pg";
@@ -50,9 +50,9 @@ async function main() {
   console.log(`  Team ID:  ${row.team_id}`);
   console.log(`  Event ID: ${row.event_id}`);
   console.log(`  Label:    ${row.label || "(none)"}`);
-  console.log(`\nDashboard URL: /campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}`);
+  console.log(`\nDashboard URL: /customer/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}`);
   console.log(`\nShare with the client:`);
-  console.log(`  URL:      <your-domain>/campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}`);
+  console.log(`  URL:      <your-domain>/customer/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}`);
   console.log(`  Username: ${username}`);
   console.log(`  Password: ${password}`);
 }

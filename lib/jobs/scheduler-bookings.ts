@@ -28,7 +28,7 @@ interface BookingRow {
  * Close the loop on native-scheduler rebookings: when a no-show lead books
  * through their concierge link, confirm the reschedule in concierge.
  *
- * Matches on utm_content (the vendeluxLeadId we put in the link), falling back
+ * Matches on utm_content (the sourceLeadId we put in the link), falling back
  * to attendee email. Only ever acts on leads still in an active no-show
  * conversation, which makes it idempotent — once confirmed, later runs skip.
  */
@@ -45,7 +45,7 @@ export async function runSchedulerBookingSync(
        TO_CHAR(START_TIME, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' AS "START_UTC",
        ATTRIBUTION_PARAMS:utm_source::string  AS "UTM_SOURCE",
        ATTRIBUTION_PARAMS:utm_content::string AS "UTM_CONTENT"
-     FROM VDXDB.APPDB_VEND2.MEETING_BOOKINGS
+     FROM APPDB.SCHEDULER.MEETING_BOOKINGS
      WHERE _FIVETRAN_DELETED = FALSE
        AND STATUS = 'confirmed'
        AND CREATED >= TO_TIMESTAMP_NTZ(?)`,
@@ -65,7 +65,7 @@ export async function runSchedulerBookingSync(
 
     // Prefer the lead id we embedded in the link; else match by attendee email.
     const utmLeadId = row.UTM_CONTENT?.trim() || null;
-    let lead = utmLeadId ? await repo.getLeadByVendeluxId(utmLeadId) : null;
+    let lead = utmLeadId ? await repo.getLeadBySourceId(utmLeadId) : null;
     if (!lead && row.ATTENDEE_EMAIL) {
       lead = await repo.getActiveLeadByEmail(row.ATTENDEE_EMAIL.trim());
     }
@@ -94,8 +94,8 @@ export async function runSchedulerBookingSync(
     // Best-effort Slack ping, mirroring the SMS/manual rebooking paths.
     try {
       const [sf, client, event] = await Promise.all([
-        lead.vendeluxLeadId
-          ? getLeadById(lead.vendeluxLeadId).catch(() => null)
+        lead.sourceLeadId
+          ? getLeadById(lead.sourceLeadId).catch(() => null)
           : Promise.resolve(null),
         repo.getClient(lead.clientId),
         repo.getCurrentEventForClient(lead.clientId)

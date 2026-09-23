@@ -136,7 +136,7 @@ describe("buildClassifierUserMessage", () => {
     eventId: "event_1",
     nativeSchedulingLink: null,
     fdeOwnerSlackId: "U01",
-    vendeluxLeadId: null,
+    sourceLeadId: null,
     status: "no_show",
     scheduledMeetingTime: new Date("2026-04-29T15:00:00Z"),
     proposedMeetingTime: null,

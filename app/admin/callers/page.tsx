@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { VdxHeader } from "@/app/_components/VdxHeader";
+import { AppHeader } from "@/app/_components/AppHeader";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
 import { getLeadRepository } from "@/lib/integrations/data";
 import { getBookingLinksForEvent } from "@/lib/integrations/leads.snowflake";
@@ -49,11 +49,11 @@ export default async function CallerViewPage() {
 
   return (
     <>
-      <VdxHeader rightSlot={<LogoutButton />} />
+      <AppHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
         <Link
           href="/admin/campaigns"
-          className="text-xs text-vdx-plum/60 hover:text-vdx-coral hover:underline"
+          className="text-xs text-brand-primary/60 hover:text-brand-accent hover:underline"
         >
           &larr; All campaigns
         </Link>
@@ -72,7 +72,7 @@ export default async function CallerViewPage() {
         ) : (
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-vdx-cream text-left text-[11px] uppercase tracking-wider text-slate-600">
+              <thead className="bg-brand-surface text-left text-[11px] uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Client</th>
                   <th className="px-5 py-3 font-semibold">Lead</th>
@@ -90,12 +90,12 @@ export default async function CallerViewPage() {
                   return (
                     <tr
                       key={lead.id}
-                      className="transition-colors hover:bg-vdx-cream/40"
+                      className="transition-colors hover:bg-brand-surface/40"
                     >
                       <td className="px-5 py-3.5">
                         <a
                           href={`/customer/${encodeURIComponent(lead.clientId)}/${encodeURIComponent(lead.eventId)}`}
-                          className="font-medium text-vdx-plum hover:text-vdx-coral hover:underline"
+                          className="font-medium text-brand-primary hover:text-brand-accent hover:underline"
                         >
                           {clientName.get(lead.clientId) ?? "—"}
                         </a>
@@ -129,7 +129,7 @@ export default async function CallerViewPage() {
                               href={link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="shrink-0 rounded-md border border-vdx-plum px-3 py-1.5 text-xs font-medium text-vdx-plum hover:bg-vdx-cream"
+                              className="shrink-0 rounded-md border border-brand-primary px-3 py-1.5 text-xs font-medium text-brand-primary hover:bg-brand-surface"
                             >
                               Booking Link
                             </a>

@@ -62,12 +62,12 @@ export interface Client {
 }
 
 /**
- * A Vendelux campaign — a (team, event) pair from
- * SILVER.SLOANE_V2.V_VDX_CAMPAIGN_CONFIG. Multiple teams may run campaigns
+ * A platform campaign — a (team, event) pair from
+ * ANALYTICS.CONCIERGE.V_CAMPAIGN_CONFIG. Multiple teams may run campaigns
  * for the same event; the composite (teamId, eventId) is the identifier.
  */
 export interface Campaign {
-  vdxCampaignId: string;
+  externalCampaignId: string;
   teamId: string;
   teamName: string;
   eventId: string;
@@ -83,7 +83,7 @@ export interface Event {
   endDate: Date;
   /** IANA timezone identifier, e.g. "America/Los_Angeles". */
   timezone: string;
-  /** Agent persona name for outbound SMS, e.g. "Sloane Royale". Sourced from Snowflake sub-campaign config. */
+  /** Agent persona name for outbound SMS, e.g. "Jordan Reyes". Sourced from Snowflake sub-campaign config. */
   agentPersonaName: string | null;
   /** Booth location at the event, e.g. "6513". */
   boothLocation: string | null;
@@ -98,8 +98,8 @@ export interface Lead {
   company: string | null;
   clientId: string;
   eventId: string;
-  /** Snowflake LEAD_ID — set when this row caches a Vendelux lead from the warehouse. */
-  vendeluxLeadId: string | null;
+  /** Snowflake LEAD_ID — set when this row caches a platform lead from the warehouse. */
+  sourceLeadId: string | null;
   nativeSchedulingLink: string | null;
   fdeOwnerSlackId: string | null;
   status: LeadStatus;

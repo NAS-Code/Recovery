@@ -33,7 +33,7 @@ function toDomainLead(row: PrismaLead): Lead {
     company: row.company,
     clientId: row.clientId,
     eventId: row.eventId,
-    vendeluxLeadId: row.vendeluxLeadId,
+    sourceLeadId: row.sourceLeadId,
     nativeSchedulingLink: row.nativeSchedulingLink,
     fdeOwnerSlackId: row.fdeOwnerSlackId,
     status: row.status as LeadStatus,
@@ -215,21 +215,21 @@ export class PrismaLeadRepository implements LeadRepository {
     return rows.map(toDomainClient);
   }
 
-  async getLeadByVendeluxId(vendeluxLeadId: string): Promise<Lead | null> {
-    const row = await prisma.lead.findUnique({ where: { vendeluxLeadId } });
+  async getLeadBySourceId(sourceLeadId: string): Promise<Lead | null> {
+    const row = await prisma.lead.findUnique({ where: { sourceLeadId } });
     return row ? toDomainLead(row) : null;
   }
 
-  async getLeadStatesByVendeluxIds(
+  async getLeadStatesBySourceIds(
     ids: string[]
   ): Promise<Map<string, Lead>> {
     if (ids.length === 0) return new Map();
     const rows = await prisma.lead.findMany({
-      where: { vendeluxLeadId: { in: ids } }
+      where: { sourceLeadId: { in: ids } }
     });
     const out = new Map<string, Lead>();
     for (const row of rows) {
-      if (row.vendeluxLeadId) out.set(row.vendeluxLeadId, toDomainLead(row));
+      if (row.sourceLeadId) out.set(row.sourceLeadId, toDomainLead(row));
     }
     return out;
   }
@@ -265,7 +265,7 @@ export class PrismaLeadRepository implements LeadRepository {
     });
 
     const existing = await prisma.lead.findUnique({
-      where: { vendeluxLeadId: input.vendeluxLeadId }
+      where: { sourceLeadId: input.sourceLeadId }
     });
 
     if (existing) {
@@ -290,7 +290,7 @@ export class PrismaLeadRepository implements LeadRepository {
         company: input.company,
         clientId: input.teamId,
         eventId: input.eventId,
-        vendeluxLeadId: input.vendeluxLeadId,
+        sourceLeadId: input.sourceLeadId,
         scheduledMeetingTime: input.scheduledMeetingTime,
         status: "scheduled"
       }

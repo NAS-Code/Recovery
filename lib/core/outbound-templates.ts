@@ -2,9 +2,9 @@ import type { Lead } from "@/lib/core/types";
 
 /** Context about the sender identity, threaded through from the client/campaign data. */
 export interface SenderContext {
-  /** The agent persona name, e.g. "Sloane Royale". */
+  /** The agent persona name, e.g. "Jordan Reyes". */
   agentName?: string | null;
-  /** The client company operating the booth, e.g. "Vendelux". */
+  /** The client company operating the booth, e.g. "Acme Events". */
   clientName?: string | null;
 }
 

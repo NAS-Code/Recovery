@@ -20,18 +20,18 @@ export interface AppendMessageInput {
 }
 
 /**
- * Input shape for caching a Vendelux Snowflake lead into Postgres so the
+ * Input shape for caching a platform Snowflake lead into Postgres so the
  * existing webhook + state-machine flow can operate on it.
  */
 export interface CacheSnowflakeLeadInput {
-  vendeluxLeadId: string;
+  sourceLeadId: string;
   teamId: string;
   teamName: string;
   eventId: string;
   eventName: string;
   eventStartDate: Date;
   eventEndDate: Date;
-  /** Agent persona name from sub-campaign config, e.g. "Sloane Royale". */
+  /** Agent persona name from sub-campaign config, e.g. "Jordan Reyes". */
   agentPersonaName?: string | null;
   /** Booth location at the event, e.g. "6513". */
   boothLocation?: string | null;
@@ -63,8 +63,8 @@ export interface LeadRepository {
   getRecentlyEndedEvents(now: Date, lookbackHours: number): Promise<Event[]>;
   getClient(id: string): Promise<Client | null>;
   listClients(): Promise<Client[]>;
-  getLeadByVendeluxId(vendeluxLeadId: string): Promise<Lead | null>;
-  getLeadStatesByVendeluxIds(ids: string[]): Promise<Map<string, Lead>>;
+  getLeadBySourceId(sourceLeadId: string): Promise<Lead | null>;
+  getLeadStatesBySourceIds(ids: string[]): Promise<Map<string, Lead>>;
   cacheSnowflakeLead(input: CacheSnowflakeLeadInput): Promise<Lead>;
   /** Mark a lead as suppressed (duplicate phone, no SMS sent). */
   suppressLead(leadId: string): Promise<void>;

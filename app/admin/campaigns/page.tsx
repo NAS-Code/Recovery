@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { isAdminAuthenticated } from "@/lib/auth/admin-auth";
 import { ensureAllCampaignCredentials, type CampaignCredentialInfo } from "@/lib/auth/campaign-credentials";
 import { getCampaignRepository } from "@/lib/integrations/campaigns";
-import { VdxHeader } from "@/app/_components/VdxHeader";
+import { AppHeader } from "@/app/_components/AppHeader";
 import { LogoutButton } from "../_components/LogoutButton";
 import {
   CampaignsTable,
@@ -60,7 +60,7 @@ export default async function CampaignsPage() {
 
   return (
     <>
-      <VdxHeader rightSlot={<LogoutButton />} />
+      <AppHeader rightSlot={<LogoutButton />} />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-8">
           <div className="flex items-start justify-between gap-4">
@@ -76,19 +76,19 @@ export default async function CampaignsPage() {
             <div className="flex shrink-0 gap-2">
               <Link
                 href="/admin/callers"
-                className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
+                className="rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-accent"
               >
                 Caller View
               </Link>
               <Link
                 href="/admin/events"
-                className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
+                className="rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-accent"
               >
                 Event View
               </Link>
               <Link
                 href="/admin/activity"
-                className="rounded-md bg-vdx-plum px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-vdx-coral"
+                className="rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-accent"
               >
                 SMS Activity
               </Link>

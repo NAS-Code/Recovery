@@ -6,11 +6,11 @@ import { useState } from "react";
 export function MarkNoShowButton({
   teamId,
   eventId,
-  vendeluxLeadId
+  sourceLeadId
 }: {
   teamId: string;
   eventId: string;
-  vendeluxLeadId: string;
+  sourceLeadId: string;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -20,7 +20,7 @@ export function MarkNoShowButton({
     setPending(true);
     setError(null);
     try {
-      const url = `/api/campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}/leads/${encodeURIComponent(vendeluxLeadId)}/noshow`;
+      const url = `/api/campaigns/${encodeURIComponent(teamId)}/${encodeURIComponent(eventId)}/leads/${encodeURIComponent(sourceLeadId)}/noshow`;
       const res = await fetch(url, { method: "POST" });
       if (!res.ok) {
         const json = (await res.json().catch(() => ({}))) as {
@@ -44,7 +44,7 @@ export function MarkNoShowButton({
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="w-full md:w-auto rounded-md bg-vdx-plum px-3 py-2 md:py-1.5 text-xs font-medium text-white hover:bg-vdx-coral disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full md:w-auto rounded-md bg-brand-primary px-3 py-2 md:py-1.5 text-xs font-medium text-white hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Sending…" : "Mark no-show"}
       </button>

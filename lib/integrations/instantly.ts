@@ -13,8 +13,7 @@ export class InstantlyError extends Error {
 
 /**
  * The parent (agency) key authenticates every send; the target client's
- * workspace is selected per-request via the `x-as-workspace` header (see
- * Vendelux/data instantly_service_base.py). One key covers all sub-workspaces.
+ * workspace is selected per-request via the `x-as-workspace` header. One key covers all sub-workspaces.
  */
 function getApiKey(): string {
   const key = (

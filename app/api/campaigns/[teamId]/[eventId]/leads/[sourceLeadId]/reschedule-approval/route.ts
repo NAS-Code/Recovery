@@ -23,12 +23,12 @@ export async function POST(
   {
     params
   }: {
-    params: { teamId: string; eventId: string; vendeluxLeadId: string };
+    params: { teamId: string; eventId: string; sourceLeadId: string };
   }
 ) {
   const teamId = decodeURIComponent(params.teamId);
   const eventId = decodeURIComponent(params.eventId);
-  const vendeluxLeadId = decodeURIComponent(params.vendeluxLeadId);
+  const sourceLeadId = decodeURIComponent(params.sourceLeadId);
 
   // Accept admin auth OR campaign-scoped auth (same as the noshow route).
   let authorized = false;
@@ -57,7 +57,7 @@ export async function POST(
   }
 
   const repo = getLeadRepository();
-  const lead = await repo.getLeadByVendeluxId(vendeluxLeadId);
+  const lead = await repo.getLeadBySourceId(sourceLeadId);
   if (!lead) {
     return NextResponse.json({ error: "lead_not_found" }, { status: 404 });
   }
@@ -74,7 +74,7 @@ export async function POST(
   if (decision === "reject") {
     await repo.rejectProposedTime(lead.id);
     await sendOutbound(lead.id, lead.phone, buildRescheduleConflictSms(lead));
-    logger.info("reschedule.rejected", { leadId: lead.id, vendeluxLeadId });
+    logger.info("reschedule.rejected", { leadId: lead.id, sourceLeadId });
     return NextResponse.json({ status: "in_reschedule_convo" });
   }
 
@@ -82,10 +82,10 @@ export async function POST(
   const known = await getCampaignMeetingTimes(
     teamId,
     eventId,
-    vendeluxLeadId
+    sourceLeadId
   ).catch(() => [] as Date[]);
   if (hasConflict(known, proposedTime)) {
-    logger.info("reschedule.approve_conflict", { leadId: lead.id, vendeluxLeadId });
+    logger.info("reschedule.approve_conflict", { leadId: lead.id, sourceLeadId });
     return NextResponse.json(
       { error: "conflict", detail: "That time is no longer open." },
       { status: 409 }
@@ -98,7 +98,7 @@ export async function POST(
 
   // Slack ping, mirroring the webhook's rebooked notification. Best-effort.
   const [sf, client, event] = await Promise.all([
-    getLeadById(vendeluxLeadId).catch(() => null),
+    getLeadById(sourceLeadId).catch(() => null),
     repo.getClient(lead.clientId),
     repo.getCurrentEventForClient(lead.clientId)
   ]);
@@ -115,7 +115,7 @@ export async function POST(
 
   logger.info("reschedule.approved", {
     leadId: lead.id,
-    vendeluxLeadId,
+    sourceLeadId,
     meetingTime: proposedTime.toISOString()
   });
   return NextResponse.json({ status: "confirmed_reschedule" });
